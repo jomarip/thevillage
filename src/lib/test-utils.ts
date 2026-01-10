@@ -81,7 +81,7 @@ export function generateMockProject(overrides?: Partial<{
     borrower: overrides?.borrower || generateTestAddress(),
     targetAmount: overrides?.targetAmount || Math.floor(Math.random() * 100000) * 1e8,
     currentAmount: overrides?.currentAmount || 0,
-    status: overrides?.status || PoolStatus.Proposed,
+    status: overrides?.status || PoolStatus.Pending,
     createdAt: overrides?.createdAt || Date.now() - Math.random() * 86400000 * 30,
   };
 }
@@ -180,7 +180,7 @@ export function generateTestScenario(name: string): TestScenario {
       isWhitelisted: i < 7,
     })),
     projects: generateMockItems(generateMockProject, 5, (i) => ({
-      status: i === 0 ? PoolStatus.Proposed : i === 1 ? PoolStatus.Active : PoolStatus.Approved,
+      status: i === 0 ? PoolStatus.Pending : i === 1 ? PoolStatus.Active : PoolStatus.Active,
     })),
     proposals: generateMockItems(generateMockProposal, 3, (i) => ({
       status: i === 0 ? ProposalStatus.Active : ProposalStatus.Passed,

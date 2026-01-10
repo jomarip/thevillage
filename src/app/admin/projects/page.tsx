@@ -42,7 +42,7 @@ export default function AdminProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<PoolStatus | "all">("all");
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [newStatus, setNewStatus] = useState<number>(PoolStatus.Approved);
+  const [newStatus, setNewStatus] = useState<number>(PoolStatus.Active);
 
   // Filter projects
   const filteredProjects = useMemo(() => {
@@ -66,8 +66,8 @@ export default function AdminProjectsPage() {
     return filtered;
   }, [allProjects, statusFilter, searchQuery]);
 
-  // Get pending projects (status = Proposed = 0)
-  const pendingProjects = allProjects.filter((p) => p.status === PoolStatus.Proposed);
+  // Get pending projects (status = Pending = 0)
+  const pendingProjects = allProjects.filter((p) => p.status === PoolStatus.Pending);
 
   const handleApprove = (projectId: number) => {
     approveProject(projectId, {
@@ -191,9 +191,9 @@ export default function AdminProjectsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {allProjects.filter((p) => p.status === PoolStatus.Approved).length}
+                  {allProjects.filter((p) => p.status === PoolStatus.Active).length}
                 </p>
-                <p className="text-sm text-text-muted">Approved</p>
+                <p className="text-sm text-text-muted">Active</p>
               </div>
             </CardContent>
           </Card>
@@ -369,7 +369,7 @@ export default function AdminProjectsPage() {
                           View
                         </Button>
                       </Link>
-                      {project.status === PoolStatus.Proposed && (
+                      {project.status === PoolStatus.Pending && (
                         <Button
                           size="sm"
                           variant="success"
@@ -380,7 +380,7 @@ export default function AdminProjectsPage() {
                           Approve
                         </Button>
                       )}
-                      {project.status !== PoolStatus.Proposed && (
+                      {project.status !== PoolStatus.Pending && (
                         <Button
                           size="sm"
                           variant="outline"

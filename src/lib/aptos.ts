@@ -143,10 +143,11 @@ export async function isWhitelisted(address: string): Promise<boolean> {
  */
 export async function getTimeBankRequest(requestId: number): Promise<TimeBankRequest | null> {
   try {
+    // Convert requestId to string for Move u64 type compatibility
     const result = await move.view({
       payload: {
         function: `${MODULE_PATHS.timebank}::get_request`,
-        functionArguments: [requestId, BANK_REGISTRY_ADDR],
+        functionArguments: [String(requestId), BANK_REGISTRY_ADDR],
       },
     });
     // Returns: (address, u64, u64, u8, u64)
@@ -183,12 +184,17 @@ export async function listTimeBankRequests(statusFilter?: RequestStatus): Promis
     });
     
     // Returns: vector<u64> - array of request IDs
-    const requestIds = result as string[];
+    const requestIds = result as string[] | number[];
     
     // Fetch details for each request
     const requests = await Promise.all(
-      requestIds.map(async (idStr) => {
-        const id = parseInt(idStr);
+      requestIds.map(async (idValue) => {
+        // Handle both string and number IDs
+        const id = typeof idValue === 'string' ? parseInt(idValue, 10) : idValue;
+        // Skip invalid IDs
+        if (isNaN(id) || id < 0) {
+          return null;
+        }
         return await getTimeBankRequest(id);
       })
     );
@@ -257,10 +263,11 @@ export async function getTreasuryBalance(address: string): Promise<number> {
  */
 export async function getInvestmentPool(poolId: number): Promise<InvestmentPool | null> {
   try {
+    // Convert poolId to string for Move u64 type compatibility
     const result = await move.view({
       payload: {
         function: `${MODULE_PATHS.investment_pool}::get_pool`,
-        functionArguments: [poolId, POOL_REGISTRY_ADDR],
+        functionArguments: [String(poolId), POOL_REGISTRY_ADDR],
       },
     });
     // Returns: (u64, u64, u64, u8, u64, u64, address)
@@ -293,10 +300,12 @@ export async function getInvestmentPool(poolId: number): Promise<InvestmentPool 
  */
 export async function getProject(projectId: number): Promise<Partial<InvestmentPool> | null> {
   try {
+    // Convert projectId to string for Move u64 type compatibility
+    // Move u64 values are often represented as strings in the SDK
     const result = await move.view({
       payload: {
         function: `${MODULE_PATHS.project_registry}::get_project`,
-        functionArguments: [projectId, PROJECT_REGISTRY_ADDR],
+        functionArguments: [String(projectId), PROJECT_REGISTRY_ADDR],
       },
     });
     // Returns: (address, vector<u8>, u64, u64, bool, u8, u64)
@@ -387,10 +396,11 @@ export async function listProjects(statusFilter?: PoolStatus): Promise<Partial<I
  */
 export async function getProposal(proposalId: number): Promise<Proposal | null> {
   try {
+    // Convert proposalId to string for Move u64 type compatibility
     const result = await move.view({
       payload: {
         function: `${MODULE_PATHS.governance}::get_proposal`,
-        functionArguments: [proposalId, GOVERNANCE_ADDR],
+        functionArguments: [String(proposalId), GOVERNANCE_ADDR],
       },
     });
     // Returns: (address, vector<u8>, u8, u64, u64, u64, u64, u8)
@@ -435,12 +445,17 @@ export async function listProposals(statusFilter?: ProposalStatus): Promise<Prop
     });
     
     // Returns: vector<u64> - array of proposal IDs
-    const proposalIds = result as string[];
+    const proposalIds = result as string[] | number[];
     
     // Fetch details for each proposal
     const proposals = await Promise.all(
-      proposalIds.map(async (idStr) => {
-        const id = parseInt(idStr);
+      proposalIds.map(async (idValue) => {
+        // Handle both string and number IDs
+        const id = typeof idValue === 'string' ? parseInt(idValue, 10) : idValue;
+        // Skip invalid IDs
+        if (isNaN(id) || id < 0) {
+          return null;
+        }
         return await getProposal(id);
       })
     );
@@ -462,10 +477,11 @@ export async function listProposals(statusFilter?: ProposalStatus): Promise<Prop
  */
 export async function getPendingRewards(address: string, poolId: number): Promise<number> {
   try {
+    // Convert poolId to string for Move u64 type compatibility
     const result = await move.view({
       payload: {
         function: `${MODULE_PATHS.rewards}::get_pending_rewards`,
-        functionArguments: [address, poolId, POOL_REGISTRY_ADDR],
+        functionArguments: [address, String(poolId), POOL_REGISTRY_ADDR],
       },
     });
     return parseInt(result[0] as string);
