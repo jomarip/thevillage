@@ -323,7 +323,7 @@ export default function AdminCompliancePage() {
                     <div className="flex items-center gap-2 mt-1">
                       {checkingStatus ? (
                         <Badge variant="secondary">Checking...</Badge>
-                      ) : isCheckedWhitelisted ? (
+                      ) : isCurrentWalletWhitelisted ? (
                         <Badge variant="success" className="gap-1">
                           <CheckCircle className="h-3 w-3" />
                           KYC Verified

@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUnifiedWallet } from "@/hooks";
-import { WalletConnectModal } from "@/components/WalletConnectModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,26 +20,6 @@ import {
 
 export default function HomePage() {
   const { connected } = useUnifiedWallet();
-
-  // Ensure wallet detection hooks initialize on page load
-  // This helps with wallets that inject after initial render
-  // Also ensure WalletConnectModal hooks are initialized by rendering it early
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Trigger wallet detection by accessing window objects
-      // This ensures wallet detection hooks run even if wallets aren't immediately available
-      const timer = setTimeout(() => {
-        // Access wallet objects to trigger detection
-        void (window as any).aptos;
-        void (window as any).nightly?.aptos;
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Always render WalletConnectModal (hidden) to ensure hooks initialize
-  // This fixes the issue where wallet connection doesn't work on initial page load
-  // The modal hooks need to be called for wallet detection to work properly
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,14 +54,13 @@ export default function HomePage() {
                     </Button>
                   </Link>
                 ) : (
-                  <WalletConnectModal
-                    trigger={
-                      <Button size="lg" className="gap-2">
-                        <Wallet className="h-5 w-5" />
-                        Connect Wallet to Start
-                      </Button>
-                    }
-                  />
+                  <Link href="/projects">
+                    <Button size="lg" className="gap-2">
+                      <Wallet className="h-5 w-5" />
+                      Connect Wallet & Explore Projects
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
                 )}
                 <Link href="/projects">
                   <Button variant="outline" size="lg">
@@ -141,17 +118,15 @@ export default function HomePage() {
                   <p className="text-text-muted">
                     Choose from Privy (recommended), Petra, or Nightly wallet. Privy works best as it natively supports Movement Network.
                   </p>
-                  {!connected && (
-                    <WalletConnectModal
-                      trigger={
-                        <Button variant="outline" size="sm" className="w-full">
-                          <Wallet className="h-4 w-4 mr-2" />
-                          Connect Wallet
-                        </Button>
-                      }
-                    />
-                  )}
-                  {connected && (
+                  {!connected ? (
+                    <Link href="/projects">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Wallet className="h-4 w-4 mr-2" />
+                        Connect Wallet on Projects Page
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </Link>
+                  ) : (
                     <div className="flex items-center gap-2 text-success text-sm">
                       <span className="w-2 h-2 rounded-full bg-success"></span>
                       Wallet Connected
@@ -450,14 +425,13 @@ export default function HomePage() {
                   </Link>
                 </>
               ) : (
-                <WalletConnectModal
-                  trigger={
-                    <Button size="lg" className="gap-2">
-                      <Wallet className="h-5 w-5" />
-                      Get Started Now
-                    </Button>
-                  }
-                />
+                <Link href="/projects">
+                  <Button size="lg" className="gap-2">
+                    <Wallet className="h-5 w-5" />
+                    Connect Wallet & Get Started
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
@@ -504,12 +478,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-      
-      {/* Hidden WalletConnectModal to ensure hooks initialize on page load */}
-      {/* This fixes the issue where wallet connection doesn't work on initial load */}
-      <div className="hidden">
-        <WalletConnectModal />
-      </div>
     </div>
   );
 }
