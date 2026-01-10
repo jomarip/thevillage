@@ -23,7 +23,7 @@ interface WalletConnectModalProps {
 }
 
 export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
-  const { connect, disconnect, account, connected, connecting, wallets } = useWallet();
+  const { connect, disconnect, account, connected, wallets } = useWallet();
   const { login, logout, authenticated, user, ready } = usePrivy();
   const { movementWallet, hasMovementWallet, createMovementWallet, isLoading: isMovementLoading } = useMovementWallet();
   const {
@@ -82,7 +82,7 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
     (window as any).nightly?.aptos !== undefined;
   
   // Find Nightly wallet from the wallets array
-  const nightlyWallet = wallets.find((w) => w.name === "Nightly");
+  const nightlyWallet = wallets?.find((w) => w.name === "Nightly");
 
   // Handle Privy login and wallet creation
   const handlePrivyLogin = async () => {
@@ -91,16 +91,22 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
         await login();
       }
       
-      // If authenticated, ensure we have a Movement wallet with publicKey
+      // If authenticated, ensure we have a Movement wallet
       if (authenticated && !isCreatingWallet) {
         setIsCreatingWallet(true);
         try {
-          // This will create a wallet if needed, or refresh existing wallet's publicKey
+          // This will create a wallet if needed
+          // If wallet already exists, it will return it or wait for public key to load
           await createMovementWallet();
         } catch (error: any) {
-          console.error("Failed to create/refresh Movement wallet:", error);
-          // Show error to user
-          if (error?.message?.includes("missing required information")) {
+          console.error("Failed to create Movement wallet:", error);
+          // Only show error if it's not a "still loading" error
+          // The "still loading" case is handled by the loading state
+          if (error?.message?.includes("still loading")) {
+            // This is okay - the public key is loading via API route
+            // Don't show error, just let it load
+            console.log("Movement wallet public key is loading, will be available shortly");
+          } else if (error?.message?.includes("missing required information")) {
             // Wallet exists but missing publicKey - user needs to reconnect
             alert(
               "Your Movement wallet is missing required information. " +
@@ -330,12 +336,12 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
 
           {/* Other wallets from adapter */}
           {wallets
-            .filter((w) => w.name !== "Petra" && w.name !== "Nightly")
+            ?.filter((w) => w.name !== "Petra" && w.name !== "Nightly")
             .map((wallet) => (
               <button
                 key={wallet.name}
                 onClick={() => handleConnect(wallet.name)}
-                disabled={connecting}
+                disabled={false}
                 className="w-full flex items-center gap-4 p-4 rounded-lg border hover:bg-muted transition-colors disabled:opacity-50"
               >
                 <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">

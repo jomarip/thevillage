@@ -37,6 +37,8 @@ export async function GET(
       );
     }
 
+    console.log(`[API] Fetching public key for wallet: ${walletId.substring(0, 20)}...`);
+
     // Create Basic Auth header: base64(appId:appSecret)
     const basicAuth = Buffer.from(`${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`).toString("base64");
 
@@ -53,11 +55,37 @@ export async function GET(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Privy API error for wallet ${walletId}:`, errorText);
+      console.error(`[API] Privy API error for wallet ${walletId}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
+      
+      // Provide more helpful error messages
+      if (response.status === 401) {
+        return NextResponse.json(
+          {
+            error: "Authentication failed",
+            message: "Invalid Privy app credentials. Please check PRIVY_APP_SECRET.",
+          },
+          { status: 401 }
+        );
+      }
+      if (response.status === 404) {
+        return NextResponse.json(
+          {
+            error: "Wallet not found",
+            message: `Wallet ${walletId} not found in Privy.`,
+          },
+          { status: 404 }
+        );
+      }
+      
       return NextResponse.json(
         {
           error: "Failed to fetch wallet from Privy",
           details: errorText,
+          status: response.status,
         },
         { status: response.status || 500 }
       );

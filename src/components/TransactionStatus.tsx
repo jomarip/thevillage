@@ -51,10 +51,8 @@ export function TransactionStatus({
 
   if (state === "idle") return null;
 
-  const isOpen = state !== "idle";
-
   return (
-    <Dialog open={isOpen} onOpenChange={() => state === "success" || state === "error" ? onClose?.() : null}>
+    <Dialog open={true} onOpenChange={() => state === "success" || state === "error" ? onClose?.() : null}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>

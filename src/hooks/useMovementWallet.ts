@@ -102,21 +102,41 @@ export function useMovementWallet(): {
   } = useQuery({
     queryKey: ['movement-wallet-public-key', linkedWalletInfo?.walletId],
     queryFn: async () => {
-      if (!linkedWalletInfo?.walletId) return null;
-
-      const response = await fetch(`/api/privy/wallets/${linkedWalletInfo.walletId}/public-key`);
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to fetch public key: ${response.statusText}`);
+      if (!linkedWalletInfo?.walletId) {
+        console.log('[useMovementWallet] No wallet ID, skipping public key fetch');
+        return null;
       }
 
-      const data = await response.json();
-      return data.publicKey as string | null;
+      console.log('[useMovementWallet] Fetching public key for wallet:', linkedWalletInfo.walletId.substring(0, 20) + '...');
+      
+      try {
+        const response = await fetch(`/api/privy/wallets/${linkedWalletInfo.walletId}/public-key`);
+        
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ error: response.statusText }));
+          console.error('[useMovementWallet] API route error:', {
+            status: response.status,
+            error: error.error || error.message,
+          });
+          throw new Error(error.error || error.message || `Failed to fetch public key: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('[useMovementWallet] Successfully fetched public key:', data.publicKey ? data.publicKey.substring(0, 20) + '...' : 'null');
+        return data.publicKey as string | null;
+      } catch (error: any) {
+        console.error('[useMovementWallet] Error fetching public key:', error);
+        // Re-throw with more context
+        if (error.message?.includes('Network')) {
+          throw new Error('Network connection issue. Please check your connection and try again.');
+        }
+        throw error;
+      }
     },
     enabled: !!linkedWalletInfo?.walletId, // Only fetch if we have a wallet ID
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     retry: 2,
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   /**
@@ -158,11 +178,23 @@ export function useMovementWallet(): {
     }
 
     if (hasMovementWallet) {
-      // If we already have a wallet, return it (wait for public key to load)
+      // If we already have a wallet with public key, return it
       if (movementWallet) {
         return movementWallet;
       }
-      // If wallet exists but public key not loaded yet, wait a bit and retry
+      // If wallet exists but public key is still loading, that's okay
+      // The React Query will fetch it automatically - just wait
+      // Don't throw an error, just return null or wait
+      // The caller should check isLoading state instead
+      console.log('[useMovementWallet] Wallet exists but public key still loading, waiting...');
+      // Wait a moment for the query to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check again after waiting
+      if (movementWallet) {
+        return movementWallet;
+      }
+      // If still not loaded, it's likely an API error - let the query error handle it
+      // Don't throw here, let the natural loading state handle it
       throw new Error(
         'Movement wallet exists but public key is still loading. Please wait a moment and try again.'
       );
