@@ -71,8 +71,12 @@ export function useMovementWallet(): {
     if (!wallet) return null;
 
     // Extract wallet ID - Privy wallet-linked accounts include `id` or `walletId`
-    const walletId = wallet.id || wallet.walletId || wallet.wallet_id;
-    const address = normalizeHexAddress(wallet.address || wallet.walletAddress);
+    // Note: Privy linked account types don't guarantee these fields at the type level
+    // (e.g. `id` isn't present on all variants), so we read them defensively.
+    const walletAny = wallet as any;
+    const walletId: string | undefined =
+      walletAny?.walletId ?? walletAny?.wallet_id ?? walletAny?.id;
+    const address = normalizeHexAddress(walletAny?.address ?? walletAny?.walletAddress);
 
     if (!walletId || !address) {
       console.warn('[useMovementWallet] Wallet found but missing walletId or address:', {
@@ -205,9 +209,13 @@ export function useMovementWallet(): {
       const wallet = result.wallet || result;
 
       // Extract wallet info from the creation result
-      const walletId = wallet.id || wallet.walletId || wallet.wallet_id;
-      const address = normalizeHexAddress(wallet.address || wallet.walletAddress);
-      const publicKey = wallet.public_key || wallet.publicKey || wallet.publicKeyHex;
+      // Wallet creation result shape can vary; read defensively.
+      const walletAny = wallet as any;
+      const walletId: string | undefined =
+        walletAny?.walletId ?? walletAny?.wallet_id ?? walletAny?.id;
+      const address = normalizeHexAddress(walletAny?.address ?? walletAny?.walletAddress);
+      const publicKey: string | undefined =
+        walletAny?.public_key ?? walletAny?.publicKey ?? walletAny?.publicKeyHex;
 
       if (!walletId || !address || !publicKey) {
         throw new Error('Failed to create Movement wallet: missing walletId, address, or public key');
