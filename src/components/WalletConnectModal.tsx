@@ -34,7 +34,7 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
     connecting: nightlyConnecting,
     isInstalled: nightlyInstalled,
   } = useNightlyWallet();
-  const { disconnect: disconnectAll } = useUnifiedWallet();
+  const { disconnect: disconnectAll, connecting } = useUnifiedWallet();
   const [open, setOpen] = useState(false);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [mounted, setMounted] = useState(false);
