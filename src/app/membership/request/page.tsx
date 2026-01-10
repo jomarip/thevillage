@@ -45,35 +45,42 @@ export default function RequestMembershipPage() {
     return pendingRequests.length > 0;
   }, [account?.address, pendingRequests]);
 
-  // Automatically create Movement wallet for Privy users when they're authenticated
+  // Automatically create or refresh Movement wallet for Privy users when they're authenticated
   useEffect(() => {
     const autoCreateWallet = async () => {
-      // Only auto-create if:
+      // Only auto-create/refresh if:
       // 1. User is connected via Privy
-      // 2. Movement wallet doesn't exist
+      // 2. Movement wallet doesn't exist OR exists but missing publicKey
       // 3. Not already creating
       // 4. Not loading
       if (
         walletType === "privy" &&
-        !hasMovementWallet &&
         !isCreatingWallet &&
         !isMovementLoading &&
         connected
       ) {
-        try {
-          setIsCreatingWallet(true);
-          await createMovementWallet();
-        } catch (error) {
-          // Silently fail - user can manually create when submitting
-          console.log("Auto-creation of Movement wallet failed, will create on submit:", error);
-        } finally {
-          setIsCreatingWallet(false);
+        // Check if we have a wallet but it's missing publicKey
+        const needsRefresh = connected && account && (!account.publicKey || account.publicKey === '');
+        
+        if (!hasMovementWallet || needsRefresh) {
+          try {
+            setIsCreatingWallet(true);
+            await createMovementWallet();
+          } catch (error: any) {
+            // Log error but don't block user - they can try again when submitting
+            console.log("Auto-creation/refresh of Movement wallet failed, will retry on submit:", error);
+            if (error?.message?.includes("missing required information")) {
+              console.warn("Movement wallet exists but missing publicKey. User may need to reconnect.");
+            }
+          } finally {
+            setIsCreatingWallet(false);
+          }
         }
       }
     };
 
     autoCreateWallet();
-  }, [walletType, hasMovementWallet, isCreatingWallet, isMovementLoading, connected, createMovementWallet]);
+  }, [walletType, hasMovementWallet, isCreatingWallet, isMovementLoading, connected, createMovementWallet, account]);
 
   // Ensure Movement wallet exists for Privy users before submitting
   const ensureMovementWallet = async () => {

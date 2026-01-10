@@ -91,13 +91,22 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
         await login();
       }
       
-      // If authenticated but no Movement wallet, create one
-      if (authenticated && !hasMovementWallet && !isCreatingWallet) {
+      // If authenticated, ensure we have a Movement wallet with publicKey
+      if (authenticated && !isCreatingWallet) {
         setIsCreatingWallet(true);
         try {
+          // This will create a wallet if needed, or refresh existing wallet's publicKey
           await createMovementWallet();
-        } catch (error) {
-          console.error("Failed to create Movement wallet:", error);
+        } catch (error: any) {
+          console.error("Failed to create/refresh Movement wallet:", error);
+          // Show error to user
+          if (error?.message?.includes("missing required information")) {
+            // Wallet exists but missing publicKey - user needs to reconnect
+            alert(
+              "Your Movement wallet is missing required information. " +
+              "Please disconnect and reconnect to restore access."
+            );
+          }
         } finally {
           setIsCreatingWallet(false);
         }
@@ -130,6 +139,22 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
       publicKey: movementWallet.publicKey,
     } : null);
   const isConnected = connected || nightlyConnected || (authenticated && (hasMovementWallet || !!movementWallet));
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[WalletConnectModal] Wallet state:', {
+      hasAccount: !!account,
+      accountAddress: account?.address,
+      hasNightlyAccount: !!nightlyAccount,
+      hasMovementWallet: !!movementWallet,
+      movementWalletAddress: movementWallet?.address,
+      authenticated,
+      connected,
+      nightlyConnected,
+      isConnected,
+      activeAccountAddress: activeAccount?.address,
+    });
+  }, [account, nightlyAccount, movementWallet, authenticated, connected, nightlyConnected, isConnected, activeAccount]);
 
   // If connected, show account info
   if (isConnected && activeAccount) {

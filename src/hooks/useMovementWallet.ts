@@ -221,10 +221,78 @@ export function useMovementWallet() {
   // Instead, we rely on tempWallet being preserved from when the wallet was first created.
   // If tempWallet is lost, the user needs to reconnect their wallet to restore it.
 
-  // Create Movement wallet
+  // Create Movement wallet or refresh existing wallet's publicKey
   const createMovementWallet = async () => {
     if (!authenticated) {
       await login();
+    }
+
+    // Check if we have a wallet in linkedAccounts but missing publicKey
+    const existingWallet = user?.linkedAccounts?.find(
+      (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
+    );
+    const existingAddress = existingWallet ? extractAddress(existingWallet) : null;
+    const hasPublicKey = existingWallet ? !!extractPublicKey(existingWallet) : false;
+
+    // If we have a wallet but it's missing publicKey, try to refresh it
+    // Note: createWallet might return the existing wallet if one already exists
+    if (existingAddress && !hasPublicKey && !tempWallet) {
+      console.log('[useMovementWallet] Wallet exists but missing publicKey, attempting to refresh...');
+      try {
+        // Try calling createWallet - if wallet exists, Privy might return it with publicKey
+        // If it creates a new wallet, we'll handle that case
+        const result = await createWallet({ chainType: 'movement' });
+        const wallet = result.wallet || result;
+        const newAddress = extractAddress(wallet);
+        const newPublicKey = extractPublicKey(wallet);
+
+        // If the returned wallet has the same address, use it (Privy returned existing wallet)
+        if (newAddress && newAddress === existingAddress && newPublicKey) {
+          let formattedAddress = newAddress;
+          if (!formattedAddress.startsWith('0x')) {
+            formattedAddress = `0x${formattedAddress}`;
+          }
+          let formattedPublicKey = newPublicKey;
+          if (!formattedPublicKey.startsWith('0x')) {
+            formattedPublicKey = `0x${formattedPublicKey}`;
+          }
+
+          const walletInfo = {
+            address: formattedAddress,
+            publicKey: formattedPublicKey,
+            chainType: wallet.chainType || 'movement',
+          };
+
+          setTempWallet(walletInfo);
+          console.log('[useMovementWallet] Refreshed wallet with publicKey:', { address: formattedAddress, publicKey: formattedPublicKey.substring(0, 20) + '...' });
+          return walletInfo;
+        } else if (newAddress && newAddress !== existingAddress) {
+          // Privy created a NEW wallet (different address) - this is a problem
+          console.warn('[useMovementWallet] createWallet created a NEW wallet instead of returning existing one. This may hit Privy\'s wallet limit.');
+          // Still store it, but warn the user
+          let formattedAddress = newAddress;
+          if (!formattedAddress.startsWith('0x')) {
+            formattedAddress = `0x${formattedAddress}`;
+          }
+          let formattedPublicKey = newPublicKey || '';
+          if (formattedPublicKey && !formattedPublicKey.startsWith('0x')) {
+            formattedPublicKey = `0x${formattedPublicKey}`;
+          }
+
+          if (formattedAddress && formattedPublicKey) {
+            const walletInfo = {
+              address: formattedAddress,
+              publicKey: formattedPublicKey,
+              chainType: wallet.chainType || 'movement',
+            };
+            setTempWallet(walletInfo);
+            return walletInfo;
+          }
+        }
+      } catch (error) {
+        console.error('[useMovementWallet] Error refreshing wallet:', error);
+        // Fall through to create new wallet if refresh failed
+      }
     }
 
     // Only create if we truly don't have a wallet (check by address, not just complete object)
@@ -261,7 +329,7 @@ export function useMovementWallet() {
         // Store temporarily until user object updates
         setTempWallet(walletInfo);
         
-        console.log('Movement wallet created:', { address, publicKey: publicKey.substring(0, 20) + '...' });
+        console.log('[useMovementWallet] Movement wallet created:', { address, publicKey: publicKey.substring(0, 20) + '...' });
         
         return walletInfo;
       } catch (error) {
@@ -270,8 +338,37 @@ export function useMovementWallet() {
       }
     }
 
-    return movementWallet;
+    // If we have movementWallet, return it
+    if (movementWallet) {
+      return movementWallet;
+    }
+
+    // If we have a wallet but no publicKey and couldn't refresh it, throw an error
+    if (existingAddress && !hasPublicKey) {
+      throw new Error(
+        'Movement wallet exists but is missing required information. ' +
+        'Please disconnect and reconnect your Privy wallet to restore access.'
+      );
+    }
+
+    return null;
   };
+
+  // Debug: Log wallet state on every render
+  useEffect(() => {
+    console.log('[useMovementWallet] Current state:', {
+      hasMovementWallet: !!movementWallet,
+      movementWalletAddress: movementWallet?.address,
+      movementWalletHasPublicKey: !!movementWallet?.publicKey,
+      hasTempWallet: !!tempWallet,
+      tempWalletAddress: tempWallet?.address,
+      hasLinkedAccounts: !!user?.linkedAccounts,
+      linkedAccountsCount: user?.linkedAccounts?.length || 0,
+      authenticated,
+      ready,
+      localStorageHasWallet: typeof window !== 'undefined' ? !!localStorage.getItem('movement_wallet_temp') : false,
+    });
+  }, [movementWallet, tempWallet, user?.linkedAccounts, authenticated, ready]);
 
   return {
     movementWallet,

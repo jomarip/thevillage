@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatAddress } from "@/lib/config";
-import { PoolStatus, PoolStatusLabels } from "@/types/contract";
+import { PoolStatus, PoolStatusLabels, InvestmentPool } from "@/types/contract";
 
 export default function AdminProjectsPage() {
   const { connected } = useUnifiedWallet();
@@ -44,9 +44,16 @@ export default function AdminProjectsPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<number>(PoolStatus.Active);
 
+  // Filter out projects without valid IDs
+  const validProjects = useMemo(() => {
+    return allProjects.filter((p): p is Partial<InvestmentPool> & { id: number } => 
+      p.id !== undefined && typeof p.id === 'number' && !isNaN(p.id)
+    );
+  }, [allProjects]);
+
   // Filter projects
   const filteredProjects = useMemo(() => {
-    let filtered = allProjects;
+    let filtered = validProjects;
 
     // Filter by status
     if (statusFilter !== "all") {
@@ -64,10 +71,10 @@ export default function AdminProjectsPage() {
     }
 
     return filtered;
-  }, [allProjects, statusFilter, searchQuery]);
+  }, [validProjects, statusFilter, searchQuery]);
 
   // Get pending projects (status = Pending = 0)
-  const pendingProjects = allProjects.filter((p) => p.status === PoolStatus.Pending);
+  const pendingProjects = validProjects.filter((p) => p.status === PoolStatus.Pending);
 
   const handleApprove = (projectId: number) => {
     approveProject(projectId, {
@@ -168,7 +175,7 @@ export default function AdminProjectsPage() {
                 <Building2 className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{allProjects.length}</p>
+                <p className="text-2xl font-bold">{validProjects.length}</p>
                 <p className="text-sm text-text-muted">Total Projects</p>
               </div>
             </CardContent>
@@ -191,7 +198,7 @@ export default function AdminProjectsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {allProjects.filter((p) => p.status === PoolStatus.Active).length}
+                  {validProjects.filter((p) => p.status === PoolStatus.Active).length}
                 </p>
                 <p className="text-sm text-text-muted">Active</p>
               </div>
@@ -204,7 +211,7 @@ export default function AdminProjectsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {allProjects.filter((p) => p.status === PoolStatus.Active).length}
+                  {validProjects.filter((p) => p.status === PoolStatus.Active).length}
                 </p>
                 <p className="text-sm text-text-muted">Active</p>
               </div>
@@ -256,7 +263,7 @@ export default function AdminProjectsPage() {
                       <Button
                         size="sm"
                         variant="success"
-                        onClick={() => handleApprove(project.id!)}
+                        onClick={() => handleApprove(project.id)}
                         disabled={isApproving}
                       >
                         {isApproving ? (
@@ -373,7 +380,7 @@ export default function AdminProjectsPage() {
                         <Button
                           size="sm"
                           variant="success"
-                          onClick={() => handleApprove(project.id!)}
+                          onClick={() => handleApprove(project.id)}
                           disabled={isApproving}
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
@@ -385,7 +392,7 @@ export default function AdminProjectsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            setSelectedProject(project.id!);
+                            setSelectedProject(project.id);
                             setNewStatus(project.status as number);
                             setShowStatusDialog(true);
                           }}

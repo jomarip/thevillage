@@ -27,7 +27,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { PoolStatus, PoolStatusLabels } from "@/types/contract";
+import { PoolStatus, PoolStatusLabels, InvestmentPool } from "@/types/contract";
 import { formatNumber, calculatePercentage, aptToUsd, formatUsd } from "@/lib/utils";
 import { octasToApt } from "@/lib/config";
 import { useProjects } from "@/hooks";

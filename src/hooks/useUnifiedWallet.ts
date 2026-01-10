@@ -40,32 +40,60 @@ export function useUnifiedWallet() {
   // Determine active wallet type
   // Priority: Direct Nightly > Aptos adapter (Petra/Nightly) > Privy embedded wallet
   const walletType = useMemo<"nightly-direct" | "aptos" | "privy" | null>(() => {
+    const debugInfo = {
+      nightlyConnected: nightlyWallet.connected,
+      hasNightlyAccount: !!nightlyWallet.account,
+      aptosConnected: aptosWallet.connected,
+      hasAptosAccount: !!aptosWallet.account,
+      privyAuthenticated: privy.authenticated,
+      hasMovementWallet: !!movementWallet,
+      hasLinkedAccounts: !!privy.user?.linkedAccounts,
+      linkedAccountsCount: privy.user?.linkedAccounts?.length || 0,
+    };
+    console.log('[useUnifiedWallet] Determining walletType:', debugInfo);
+
     // Check direct Nightly connection first (bypasses adapter validation)
     // This is the preferred method for Nightly as it supports Movement Network natively
     if (nightlyWallet.connected && nightlyWallet.account) {
+      console.log('[useUnifiedWallet] Wallet type: nightly-direct');
       return "nightly-direct";
     }
     // Check if using Petra or Nightly via adapter
     // Note: If Nightly is connected via adapter, we still use it, but direct is preferred
     if (aptosWallet.connected && aptosWallet.account) {
+      console.log('[useUnifiedWallet] Wallet type: aptos');
       return "aptos";
     }
     // Check Privy embedded wallet
     // Check if we have movementWallet OR if Privy is authenticated (even if movementWallet is null due to missing publicKey)
     // This ensures connected state is true even when wallet is missing publicKey temporarily
-    if (privy.authenticated && (movementWallet || privy.user?.linkedAccounts?.some((a: any) => 
+    const hasPrivyWallet = privy.authenticated && (movementWallet || privy.user?.linkedAccounts?.some((a: any) => 
       a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
-    ))) {
+    ));
+    if (hasPrivyWallet) {
+      console.log('[useUnifiedWallet] Wallet type: privy');
       return "privy";
     }
+    console.log('[useUnifiedWallet] Wallet type: null (no wallet detected)');
     return null;
   }, [nightlyWallet.connected, nightlyWallet.account, aptosWallet.connected, aptosWallet.account, privy.authenticated, privy.user?.linkedAccounts, movementWallet]);
 
   // Get active account
   // Priority: Direct Nightly > Aptos adapter (Petra/Nightly) > Privy
   const account = useMemo(() => {
+    console.log('[useUnifiedWallet] Computing account:', {
+      walletType,
+      hasNightlyAccount: !!nightlyWallet.account,
+      hasAptosAccount: !!aptosWallet.account,
+      hasMovementWallet: !!movementWallet,
+      movementWalletAddress: movementWallet?.address,
+      hasLinkedAccounts: !!privy.user?.linkedAccounts,
+      authenticated: privy.authenticated,
+    });
+
     // Direct Nightly connection (preferred for Movement Network)
     if (walletType === "nightly-direct" && nightlyWallet.account) {
+      console.log('[useUnifiedWallet] Using Nightly direct account');
       return {
         address: nightlyWallet.account.address,
         publicKey: nightlyWallet.account.publicKey,
@@ -73,6 +101,7 @@ export function useUnifiedWallet() {
     }
     // Aptos adapter (Petra or Nightly via adapter)
     if (walletType === "aptos" && aptosWallet.account) {
+      console.log('[useUnifiedWallet] Using Aptos adapter account');
       return {
         address: aptosWallet.account.address,
         publicKey: aptosWallet.account.publicKey,
@@ -82,6 +111,10 @@ export function useUnifiedWallet() {
     if (walletType === "privy") {
       // First try movementWallet (has publicKey)
       if (movementWallet) {
+        console.log('[useUnifiedWallet] Using movementWallet account:', {
+          address: movementWallet.address,
+          hasPublicKey: !!movementWallet.publicKey,
+        });
         return {
           address: movementWallet.address,
           publicKey: movementWallet.publicKey,
@@ -96,19 +129,28 @@ export function useUnifiedWallet() {
         if (wallet) {
           // Privy's wallet type has address property
           const address = wallet.address || (wallet as any).walletAddress;
+          console.log('[useUnifiedWallet] Found wallet in linkedAccounts (fallback):', {
+            address,
+            hasPublicKey: !!(wallet as any).public_key || !!(wallet as any).publicKey,
+            walletKeys: Object.keys(wallet),
+          });
           if (address) {
             // Return account with address, but publicKey might be missing
             // This is okay for display purposes, but transactions will fail if publicKey is missing
-            return {
+            const account = {
               address: address.startsWith('0x') ? address : `0x${address}`,
               publicKey: (wallet as any).public_key || (wallet as any).publicKey || (wallet as any).publicKeyHex || '', // May be empty
             };
+            console.log('[useUnifiedWallet] Returning fallback account:', account);
+            return account;
           }
         }
       }
+      console.log('[useUnifiedWallet] No Privy account found');
     }
+    console.log('[useUnifiedWallet] No account found - returning null');
     return null;
-  }, [walletType, nightlyWallet.account, aptosWallet.account, movementWallet, privy.user?.linkedAccounts]);
+  }, [walletType, nightlyWallet.account, aptosWallet.account, movementWallet, privy.user?.linkedAccounts, privy.authenticated]);
 
   // Sign and submit transaction
   // Supports: Direct Nightly (bypasses adapter), Petra/Nightly (via adapter), and Privy (embedded wallet)
@@ -176,7 +218,26 @@ export function useUnifiedWallet() {
     
     // Use Privy (either as primary wallet or fallback from Aptos adapter)
     // Note: Fallback happens when walletType === "aptos" but we caught a network error above
-    if ((walletType === "privy" || (walletType === "aptos" && privy.authenticated)) && movementWallet) {
+    if ((walletType === "privy" || (walletType === "aptos" && privy.authenticated))) {
+      // Check if we have movementWallet with publicKey
+      if (!movementWallet) {
+        // Try to get account from linkedAccounts as fallback
+        const fallbackWallet = privy.user?.linkedAccounts?.find(
+          (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
+        );
+        if (fallbackWallet) {
+          const address = (fallbackWallet as any).address || (fallbackWallet as any).walletAddress;
+          throw new Error(
+            `Movement wallet found but missing required information (publicKey). ` +
+            `Please click "Connect Wallet" and reconnect your Privy wallet to restore access. ` +
+            `Your wallet address: ${address}`
+          );
+        }
+        throw new Error(
+          "No Movement wallet found. Please connect your Privy wallet first."
+        );
+      }
+
       // Validate Movement wallet has required fields
       if (!movementWallet.address || !movementWallet.publicKey) {
         // Add detailed logging to help debug
@@ -188,7 +249,9 @@ export function useUnifiedWallet() {
           walletObject: movementWallet,
         });
         throw new Error(
-          "Movement wallet is missing required information. Please disconnect and reconnect your Privy wallet."
+          `Movement wallet is missing required information (publicKey). ` +
+          `Please click "Connect Wallet" and reconnect your Privy wallet to restore access. ` +
+          `Your wallet address: ${movementWallet.address || 'unknown'}`
         );
       }
 

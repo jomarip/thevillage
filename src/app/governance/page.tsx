@@ -108,10 +108,14 @@ export default function GovernancePage() {
   // Real proposals take precedence if IDs match, otherwise append
   const allProposals = useMemo<ExtendedProposal[]>(() => {
     const merged: ExtendedProposal[] = [];
-    const realProposalIds = new Set(realProposals.map(p => p.id));
+    // Filter out proposals without valid IDs
+    const validRealProposals = realProposals.filter((p): p is Proposal => 
+      p.id !== undefined && typeof p.id === 'number' && !isNaN(p.id)
+    );
+    const realProposalIds = new Set(validRealProposals.map(p => p.id));
     
     // Add real proposals first (marked as real)
-    realProposals.forEach((realProp) => {
+    validRealProposals.forEach((realProp) => {
       // Find matching mock proposal for additional metadata
       const mockMatch = MOCK_PROPOSALS.find(m => m.id === realProp.id);
       
