@@ -71,21 +71,43 @@ export function useMovementWallet() {
 
   // Find Movement wallet in linked accounts or use temp wallet
   const movementWallet = useMemo(() => {
+    console.log('[useMovementWallet] Computing movementWallet:', {
+      hasLinkedAccounts: !!user?.linkedAccounts,
+      linkedAccountsCount: user?.linkedAccounts?.length || 0,
+      hasTempWallet: !!tempWallet,
+      tempWalletAddress: tempWallet?.address,
+    });
+
     // First check linked accounts
     if (user?.linkedAccounts) {
       const wallet = user.linkedAccounts.find(
         (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
       );
       
+      console.log('[useMovementWallet] Found wallet in linkedAccounts:', {
+        found: !!wallet,
+        chainType: wallet?.chainType,
+        address: wallet ? extractAddress(wallet) : null,
+        hasPublicKey: wallet ? !!extractPublicKey(wallet) : null,
+        walletKeys: wallet ? Object.keys(wallet) : [],
+      });
+      
       if (wallet) {
         // Extract public key from linkedAccounts wallet (Privy uses public_key with underscore)
         let publicKey = extractPublicKey(wallet);
         const address = extractAddress(wallet);
         
+        console.log('[useMovementWallet] Extracted wallet info:', {
+          address,
+          publicKey: publicKey ? publicKey.substring(0, 20) + '...' : null,
+          tempWalletAddress: tempWallet?.address,
+          addressesMatch: address && tempWallet?.address === address,
+        });
+        
         // If no publicKey in linkedAccounts wallet, try to use it from tempWallet if addresses match
         if (!publicKey && tempWallet && address && tempWallet.address === address) {
           publicKey = tempWallet.publicKey;
-          console.log('Using publicKey from tempWallet for linkedAccounts wallet');
+          console.log('[useMovementWallet] Using publicKey from tempWallet for linkedAccounts wallet');
         }
         
         // Format public key if we have it
@@ -101,6 +123,7 @@ export function useMovementWallet() {
         
         // If we have both address and publicKey, return the wallet
         if (formattedAddress && publicKey) {
+          console.log('[useMovementWallet] Returning complete wallet from linkedAccounts');
           // Clear temp wallet if found in linked accounts with complete info
           if (tempWallet) setTempWallet(null);
           
@@ -112,6 +135,7 @@ export function useMovementWallet() {
         } else {
           // LinkedAccounts wallet exists but missing publicKey - use tempWallet if addresses match
           if (tempWallet && formattedAddress && tempWallet.address === formattedAddress) {
+            console.log('[useMovementWallet] Returning wallet with tempWallet publicKey');
             // Use tempWallet's publicKey with linkedAccounts address
             return {
               address: formattedAddress,
@@ -122,7 +146,10 @@ export function useMovementWallet() {
           // If no matching tempWallet, we can't use this wallet for transactions
           // But we still return it so hasMovementWallet knows a wallet exists
           // This prevents creating duplicate wallets
-          console.warn('Movement wallet found in linkedAccounts but missing publicKey and no matching tempWallet.');
+          console.warn('[useMovementWallet] Movement wallet found in linkedAccounts but missing publicKey and no matching tempWallet.', {
+            linkedAccountsAddress: formattedAddress,
+            tempWalletAddress: tempWallet?.address,
+          });
           return null;
         }
       }
@@ -130,14 +157,21 @@ export function useMovementWallet() {
     
     // If not in linked accounts but we have a temp wallet, use it
     if (tempWallet) {
+      console.log('[useMovementWallet] Returning tempWallet:', {
+        address: tempWallet.address,
+        hasPublicKey: !!tempWallet.publicKey,
+      });
       return tempWallet;
     }
     
+    console.log('[useMovementWallet] No wallet found - returning null');
     return null;
   }, [user?.linkedAccounts, tempWallet]);
   
-  // Clear temp wallet when user object updates with the wallet AND it has publicKey
-  // Keep tempWallet if linkedAccounts wallet doesn't have publicKey (we need it for transactions)
+  // CRITICAL: Never clear tempWallet if linkedAccounts wallet doesn't have publicKey
+  // tempWallet contains the publicKey we need for transactions. We cannot fetch it
+  // by calling createWallet() because that creates NEW wallets, not returns existing ones.
+  // So we must preserve tempWallet permanently when linkedAccounts lacks publicKey.
   useEffect(() => {
     if (user?.linkedAccounts && tempWallet) {
       const found = user.linkedAccounts.find(
@@ -145,22 +179,20 @@ export function useMovementWallet() {
         (a.chainType === 'movement' || a.chainType === 'aptos') &&
         extractAddress(a) === tempWallet.address
       );
-      // Only clear tempWallet if the found wallet has a publicKey
-      // If it doesn't have publicKey, we need to keep tempWallet for transactions
+      // Only clear tempWallet if the found wallet has a publicKey AND it matches tempWallet
+      // This ensures we don't lose the publicKey needed for transactions
       if (found) {
         const foundPublicKey = extractPublicKey(found);
-        if (foundPublicKey) {
-          // LinkedAccounts now has publicKey, we can clear tempWallet
+        // Only clear if linkedAccounts has the SAME publicKey as tempWallet
+        // This means linkedAccounts now has the complete wallet info
+        if (foundPublicKey && foundPublicKey === tempWallet.publicKey) {
+          // LinkedAccounts now has the same publicKey as tempWallet, safe to clear
           setTempWallet(null);
         }
-        // If no publicKey, keep tempWallet - we need it!
+        // If no publicKey or different publicKey, keep tempWallet - we need it for transactions!
       }
     }
   }, [user?.linkedAccounts, tempWallet]);
-
-  // State to track if we're fetching wallet details
-  const [isFetchingWallet, setIsFetchingWallet] = useState(false);
-  const [lastFetchedAddress, setLastFetchedAddress] = useState<string | null>(null);
 
   // Check if user has Movement wallet (by address, even if missing publicKey)
   // This prevents creating duplicate wallets
@@ -184,78 +216,10 @@ export function useMovementWallet() {
     return false;
   }, [movementWallet, user?.linkedAccounts, tempWallet]);
 
-  // Auto-fetch wallet details if we have a wallet in linkedAccounts but missing publicKey
-  useEffect(() => {
-    const fetchMissingPublicKey = async () => {
-      // Don't fetch if already fetching, or if we have movementWallet, or if not authenticated
-      if (isFetchingWallet || movementWallet || !authenticated || !ready) return;
-
-      // Check if we have a wallet in linkedAccounts without publicKey
-      if (user?.linkedAccounts) {
-        const wallet = user.linkedAccounts.find(
-          (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
-        );
-        
-        if (wallet) {
-          const address = extractAddress(wallet);
-          const publicKey = extractPublicKey(wallet);
-          
-          // If we have address but no publicKey, and no tempWallet with matching address
-          // Also check we haven't already tried to fetch this address
-          if (address && !publicKey && (!tempWallet || tempWallet.address !== address) && lastFetchedAddress !== address) {
-            setIsFetchingWallet(true);
-            setLastFetchedAddress(address);
-            try {
-              // Call createWallet - Privy should return existing wallet if one exists
-              // Per Privy docs: creating a wallet when one exists returns the existing wallet
-              // This gives us the publicKey without creating a duplicate
-              // Reference: https://docs.privy.io/guides/wallets/using-wallets/other-chains#movement
-              const result = await createWallet({ chainType: 'movement' });
-              const walletResult = result.wallet || result;
-              
-              // Extract and format the wallet info
-              let walletAddress = extractAddress(walletResult) || address;
-              if (walletAddress && !walletAddress.startsWith('0x')) {
-                walletAddress = `0x${walletAddress}`;
-              }
-              
-              let walletPublicKey = extractPublicKey(walletResult);
-              if (walletPublicKey && !walletPublicKey.startsWith('0x')) {
-                walletPublicKey = `0x${walletPublicKey}`;
-              }
-              
-              // If we got the publicKey and addresses match, store it in tempWallet
-              if (walletAddress && walletPublicKey) {
-                // Normalize addresses for comparison (remove 0x prefix for comparison)
-                const normalizedAddress = address.replace(/^0x/, '').toLowerCase();
-                const normalizedWalletAddress = walletAddress.replace(/^0x/, '').toLowerCase();
-                
-                if (normalizedWalletAddress === normalizedAddress) {
-                  const walletInfo = {
-                    address: walletAddress,
-                    publicKey: walletPublicKey,
-                    chainType: walletResult.chainType || 'movement',
-                  };
-                  setTempWallet(walletInfo);
-                  console.log('Fetched missing publicKey for wallet:', walletAddress);
-                } else {
-                  console.warn('Wallet address mismatch:', { expected: address, got: walletAddress });
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching wallet details:', error);
-              // Reset lastFetchedAddress on error so we can retry later
-              setLastFetchedAddress(null);
-            } finally {
-              setIsFetchingWallet(false);
-            }
-          }
-        }
-      }
-    };
-
-    fetchMissingPublicKey();
-  }, [user?.linkedAccounts, movementWallet, tempWallet, authenticated, ready, isFetchingWallet, lastFetchedAddress, createWallet]);
+  // IMPORTANT: We do NOT auto-fetch wallet details by calling createWallet()
+  // because createWallet() creates NEW wallets, it doesn't return existing ones.
+  // Instead, we rely on tempWallet being preserved from when the wallet was first created.
+  // If tempWallet is lost, the user needs to reconnect their wallet to restore it.
 
   // Create Movement wallet
   const createMovementWallet = async () => {

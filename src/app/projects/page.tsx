@@ -133,10 +133,14 @@ export default function ProjectsPage() {
   // Real projects take precedence if IDs match, otherwise append
   const allProjects = useMemo<ExtendedProject[]>(() => {
     const merged: ExtendedProject[] = [];
-    const realProjectIds = new Set(realProjects.map(p => p.id));
+    // Filter out projects without valid IDs and create Set of valid IDs
+    const validRealProjects = realProjects.filter((p): p is Partial<InvestmentPool> & { id: number } => 
+      p.id !== undefined && typeof p.id === 'number' && !isNaN(p.id)
+    );
+    const realProjectIds = new Set(validRealProjects.map(p => p.id));
     
     // Add real projects first (marked as real)
-    realProjects.forEach((realProj) => {
+    validRealProjects.forEach((realProj) => {
       // Find matching mock project for additional metadata
       const mockMatch = MOCK_PROJECTS.find(m => m.id === realProj.id);
       
@@ -149,7 +153,7 @@ export default function ProjectsPage() {
         currentFunding: realProj.currentTotal || mockMatch?.currentFunding || 0,
         targetHours: (realProj as any).targetHours || mockMatch?.targetHours || 0,
         currentHours: mockMatch?.currentHours || 0,
-        status: realProj.status,
+        status: realProj.status || mockMatch?.status || PoolStatus.Pending,
         category: mockMatch?.category || "Community",
         createdAt: realProj.createdAt || mockMatch?.createdAt || Date.now(),
         imageUrl: mockMatch?.imageUrl || null,
