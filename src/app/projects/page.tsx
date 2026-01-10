@@ -172,7 +172,7 @@ export default function ProjectsPage() {
     return merged.sort((a, b) => b.id - a.id);
   }, [realProjects]);
 
-  const categories = [...new Set(allProjects.map((p) => p.category))];
+  const categories = Array.from(new Set(allProjects.map((p) => p.category)));
 
   const filteredProjects = allProjects.filter((project) => {
     const matchesSearch =
