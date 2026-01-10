@@ -6,7 +6,12 @@
  * 2. Sign hash using Privy's raw signing (useSignRawHash)
  * 3. Submit transaction using Aptos TS SDK
  * 
- * Reference: https://docs.privy.io/recipes/use-tier-2
+ * Reference: https://docs.privy.io/guides/wallets/using-wallets/other-chains
+ * Movement-specific: https://docs.privy.io/guides/wallets/using-wallets/other-chains#movement
+ * 
+ * Note: useSignRawHash from @privy-io/react-auth/extended-chains automatically
+ * handles wallet ID lookup based on the address provided. This matches the server-side
+ * pattern: privy.wallets().rawSign(walletId, {params: {hash: toHex(message)}})
  */
 
 import {
@@ -21,9 +26,12 @@ import {
 import { toHex } from 'viem';
 import { MOVEMENT_REST_URL } from './config';
 
+// Privy's useSignRawHash from React SDK - note that the actual implementation
+// may support Movement/Aptos even if TypeScript types don't reflect it
+// We use a flexible type to work with Privy's React SDK
 type PrivySignRawHash = (opts: {
   address: string;
-  chainType: 'movement' | 'aptos';
+  chainType: string; // Privy React SDK may support 'aptos' for Movement even if types don't show it
   hash: `0x${string}`;
 }) => Promise<{ signature: `0x${string}` }>;
 
@@ -41,7 +49,7 @@ export async function signAndSubmitMovementEntryFunction(opts: {
 
   senderAddress: string;          // 0x...
   senderPublicKeyHex: string;     // 32-byte hex, usually 0x...
-  chainType: 'movement' | 'aptos';
+  chainType: 'aptos'; // Movement uses 'aptos' chainType in Privy (Movement follows Aptos standards)
 
   signRawHash: PrivySignRawHash;
 

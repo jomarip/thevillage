@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUnifiedWallet } from "@/hooks";
 import { MainLayout } from "@/components/Navigation";
-import { useRequestMembership, useMemberStatus, useMembershipRequests } from "@/hooks";
+import { useRequestMembership, useMemberStatus, useMembershipRequests, useMovementWallet } from "@/hooks";
 import { RequestStatus } from "@/types/contract";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,13 +25,16 @@ import { UserPlus, CheckCircle, Wallet, Info, Clock } from "lucide-react";
 
 export default function RequestMembershipPage() {
   const router = useRouter();
-  const { connected, account } = useUnifiedWallet();
+  const { connected, account, walletType } = useUnifiedWallet();
   const { isMember, isLoading: statusLoading } = useMemberStatus();
   const { mutate: requestMembership, isPending } = useRequestMembership();
   const { data: pendingRequests = [], isLoading: requestsLoading } = useMembershipRequests(RequestStatus.Pending);
+  const { hasMovementWallet, createMovementWallet, isLoading: isMovementLoading } = useMovementWallet();
   
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [note, setNote] = useState("");
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   // Check if current user has a pending request
   // Note: This is a simplified check - you may need to adjust based on your contract structure
@@ -42,18 +45,73 @@ export default function RequestMembershipPage() {
     return pendingRequests.length > 0;
   }, [account?.address, pendingRequests]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Automatically create Movement wallet for Privy users when they're authenticated
+  useEffect(() => {
+    const autoCreateWallet = async () => {
+      // Only auto-create if:
+      // 1. User is connected via Privy
+      // 2. Movement wallet doesn't exist
+      // 3. Not already creating
+      // 4. Not loading
+      if (
+        walletType === "privy" &&
+        !hasMovementWallet &&
+        !isCreatingWallet &&
+        !isMovementLoading &&
+        connected
+      ) {
+        try {
+          setIsCreatingWallet(true);
+          await createMovementWallet();
+        } catch (error) {
+          // Silently fail - user can manually create when submitting
+          console.log("Auto-creation of Movement wallet failed, will create on submit:", error);
+        } finally {
+          setIsCreatingWallet(false);
+        }
+      }
+    };
+
+    autoCreateWallet();
+  }, [walletType, hasMovementWallet, isCreatingWallet, isMovementLoading, connected, createMovementWallet]);
+
+  // Ensure Movement wallet exists for Privy users before submitting
+  const ensureMovementWallet = async () => {
+    if (walletType === "privy" && !hasMovementWallet && !isCreatingWallet) {
+      setIsCreatingWallet(true);
+      setWalletError(null);
+      try {
+        await createMovementWallet();
+      } catch (error: any) {
+        console.error("Failed to create Movement wallet:", error);
+        setWalletError(error.message || "Failed to create Movement wallet. Please try again.");
+        throw error;
+      } finally {
+        setIsCreatingWallet(false);
+      }
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRole) return;
 
-    requestMembership(
-      { role: parseInt(selectedRole) as Role, note },
-      {
-        onSuccess: () => {
-          router.push("/volunteer/dashboard");
-        },
-      }
-    );
+    try {
+      // Ensure Movement wallet exists for Privy users
+      await ensureMovementWallet();
+
+      requestMembership(
+        { role: parseInt(selectedRole) as Role, note },
+        {
+          onSuccess: () => {
+            router.push("/volunteer/dashboard");
+          },
+        }
+      );
+    } catch (error) {
+      // Error already handled in ensureMovementWallet
+      console.error("Failed to prepare transaction:", error);
+    }
   };
 
   // If already a member, show status
@@ -240,17 +298,24 @@ export default function RequestMembershipPage() {
                 </div>
               </div>
 
+              {/* Wallet Error Message */}
+              {walletError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive">{walletError}</p>
+                </div>
+              )}
+
               {/* Submit Button */}
               <Button
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={!selectedRole || isPending}
-                isLoading={isPending}
-                loadingText="Submitting Request..."
+                disabled={!selectedRole || isPending || isCreatingWallet}
+                isLoading={isPending || isCreatingWallet}
+                loadingText={isCreatingWallet ? "Creating Movement Wallet..." : "Submitting Request..."}
               >
                 <UserPlus className="h-5 w-5 mr-2" />
-                Submit Membership Request
+                {isCreatingWallet ? "Setting Up Wallet..." : "Submit Membership Request"}
               </Button>
 
               <p className="text-xs text-center text-text-muted">
