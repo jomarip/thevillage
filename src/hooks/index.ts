@@ -62,7 +62,16 @@ export {
 export {
   useProject,
   useProjects,
+  useApproveProject,
+  useUpdateProjectStatus,
 } from "./useProjects";
+
+// Registry Hub hooks
+export {
+  useCommunityConfig,
+  useInitializeHub,
+  useRegisterCommunity,
+} from "./useRegistryHub";
 
 // Rewards hooks
 export {

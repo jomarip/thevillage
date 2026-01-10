@@ -66,6 +66,7 @@ export const MODULE_PATHS = {
   project_registry: `${CONTRACT_ADDRESS}::project_registry`,
   fractional_asset: `${CONTRACT_ADDRESS}::fractional_asset`,
   token: `${CONTRACT_ADDRESS}::token`,
+  registry_hub: `${CONTRACT_ADDRESS}::registry_hub`,
 } as const;
 
 // Move token conversion constants

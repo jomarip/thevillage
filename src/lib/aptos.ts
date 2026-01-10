@@ -679,6 +679,108 @@ export async function listMembershipRequests(statusFilter: number = 0): Promise<
   }
 }
 
+// ============================================================================
+// View Functions - Registry Hub Module
+// ============================================================================
+
+/**
+ * Get community configuration from registry hub
+ */
+export async function getCommunityConfig(hubAddr: string, communityId: number) {
+  try {
+    const result = await move.view({
+      payload: {
+        function: `${MODULE_PATHS.registry_hub}::get_community_config`,
+        functionArguments: [hubAddr, communityId],
+      },
+    });
+    // Returns: CommunityConfig struct with all registry addresses
+    return {
+      members_registry_addr: result[0] as string,
+      compliance_registry_addr: result[1] as string,
+      treasury_addr: result[2] as string,
+      pool_registry_addr: result[3] as string,
+      fractional_shares_addr: result[4] as string,
+      governance_addr: result[5] as string,
+      token_admin_addr: result[6] as string,
+      time_token_admin_addr: result[7] as string,
+    };
+  } catch (error) {
+    console.error("Error getting community config:", error);
+    return null;
+  }
+}
+
+// ============================================================================
+// Transaction Builders - Registry Hub
+// ============================================================================
+
+/**
+ * Build transaction data for initializing registry hub
+ */
+export function buildInitializeHubTx() {
+  return {
+    function: `${MODULE_PATHS.registry_hub}::initialize` as `${string}::${string}::${string}`,
+    functionArguments: [],
+  };
+}
+
+/**
+ * Build transaction data for registering a new community
+ */
+export function buildRegisterCommunityTx(
+  hubAddr: string,
+  communityId: number,
+  membersRegistryAddr: string,
+  complianceRegistryAddr: string,
+  treasuryAddr: string,
+  poolRegistryAddr: string,
+  fractionalSharesAddr: string,
+  governanceAddr: string,
+  tokenAdminAddr: string,
+  timeTokenAdminAddr: string
+) {
+  return {
+    function: `${MODULE_PATHS.registry_hub}::register_community` as `${string}::${string}::${string}`,
+    functionArguments: [
+      hubAddr,
+      communityId,
+      membersRegistryAddr,
+      complianceRegistryAddr,
+      treasuryAddr,
+      poolRegistryAddr,
+      fractionalSharesAddr,
+      governanceAddr,
+      tokenAdminAddr,
+      timeTokenAdminAddr,
+    ],
+  };
+}
+
+// ============================================================================
+// Transaction Builders - Project Registry
+// ============================================================================
+
+/**
+ * Build transaction data for approving a project (admin only)
+ */
+export function buildApproveProjectTx(projectId: number) {
+  return {
+    function: `${MODULE_PATHS.project_registry}::approve_project` as `${string}::${string}::${string}`,
+    functionArguments: [projectId, PROJECT_REGISTRY_ADDR],
+  };
+}
+
+/**
+ * Build transaction data for updating project status (admin only)
+ */
+export function buildUpdateProjectStatusTx(projectId: number, newStatus: number) {
+  return {
+    function: `${MODULE_PATHS.project_registry}::update_project_status` as `${string}::${string}::${string}`,
+    functionArguments: [projectId, newStatus, PROJECT_REGISTRY_ADDR],
+  };
+}
+
 // Export error parser for use in components
 export { parseContractError };
 

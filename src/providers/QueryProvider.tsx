@@ -100,8 +100,9 @@ export const queryKeys = {
   
   // Projects queries
   projects: {
-    all: ["projects"] as const,
+    all: (status?: number) => ["projects", status] as const,
     list: () => ["projects", "list"] as const,
+    project: (id: number) => ["projects", "project", id] as const,
     detail: (id: number) => ["projects", "detail", id] as const,
   },
   
@@ -110,6 +111,12 @@ export const queryKeys = {
     all: ["rewards"] as const,
     pending: (address: string, poolId: number) => ["rewards", "pending", address, poolId] as const,
     stakes: (address: string) => ["rewards", "stakes", address] as const,
+  },
+  
+  // Community/Registry Hub queries
+  community: {
+    all: ["community"] as const,
+    config: (hubAddr: string, communityId: number) => ["community", "config", hubAddr, communityId] as const,
   },
 };
 

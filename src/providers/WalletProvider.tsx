@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useMemo, useEffect } from "react";
 import {
   AptosWalletAdapterProvider,
 } from "@aptos-labs/wallet-adapter-react";
@@ -41,6 +41,38 @@ export function WalletProvider({ children }: WalletProviderProps) {
   // Show Petra and Nightly as options even when not already installed
   // Nightly will be auto-detected by the wallet adapter if installed
   const optInWallets = ["Petra", "Nightly"];
+
+  // Initialize wallet detection on mount
+  // This ensures wallets that inject after page load are detected
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Trigger wallet detection by accessing window objects
+    // This helps wallets that inject themselves after initial page load
+    const detectWallets = () => {
+      // Access wallet objects to trigger detection
+      try {
+        void (window as any).aptos;
+        void (window as any).nightly?.aptos;
+      } catch (error) {
+        // Silently ignore errors during detection
+      }
+    };
+
+    // Immediate detection
+    detectWallets();
+
+    // Retry detection after a short delay (for wallets that inject later)
+    const timer1 = setTimeout(detectWallets, 100);
+    const timer2 = setTimeout(detectWallets, 500);
+    const timer3 = setTimeout(detectWallets, 1000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, []);
 
   // DApp configuration
   const dappInfo = useMemo(() => ({
