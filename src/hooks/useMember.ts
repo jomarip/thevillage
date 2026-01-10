@@ -141,7 +141,8 @@ export function useMemberStatus() {
     connected,
     isMember: isMemberData ?? false,
     role: roleData ?? null,
-    roleLabel: roleData !== null ? RoleLabels[roleData] : null,
+    // roleData can be undefined while the query is loading; only index when it's a real Role.
+    roleLabel: roleData != null ? RoleLabels[roleData] : null,
     isAdmin: roleData === Role.Admin,
     isValidator: roleData === Role.Validator || roleData === Role.Admin,
     isBorrower: roleData === Role.Borrower,
