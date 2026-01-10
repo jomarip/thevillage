@@ -150,23 +150,54 @@ export function useUnifiedWallet() {
     // Use Privy (either as primary wallet or fallback from Aptos adapter)
     // Note: Fallback happens when walletType === "aptos" but we caught a network error above
     if ((walletType === "privy" || (walletType === "aptos" && privy.authenticated)) && movementWallet) {
+      // Validate Movement wallet has required fields
+      if (!movementWallet.address || !movementWallet.publicKey) {
+        throw new Error(
+          "Movement wallet is missing required information. Please disconnect and reconnect your Privy wallet."
+        );
+      }
+
+      // Ensure address is properly formatted (Aptos/Movement addresses are 66 chars: 0x + 64 hex)
+      let formattedAddress = movementWallet.address;
+      if (!formattedAddress.startsWith('0x')) {
+        formattedAddress = `0x${formattedAddress}`;
+      }
+      
+      // Ensure public key is properly formatted
+      let formattedPublicKey = movementWallet.publicKey;
+      if (!formattedPublicKey.startsWith('0x')) {
+        formattedPublicKey = `0x${formattedPublicKey}`;
+      }
+
       // Use Privy Tier 2 pattern: build -> sign raw hash -> submit
       // Privy natively supports Movement Network
-      const txHash = await signAndSubmitMovementEntryFunction({
-        senderAddress: movementWallet.address,
-        senderPublicKeyHex: movementWallet.publicKey,
-        chainType: 'movement',
-        signRawHash,
-        functionId: payload.data.function,
-        functionArgs: payload.data.functionArguments,
-        typeArgs: [],
-      });
+      try {
+        const txHash = await signAndSubmitMovementEntryFunction({
+          senderAddress: formattedAddress,
+          senderPublicKeyHex: formattedPublicKey,
+          chainType: 'movement',
+          signRawHash,
+          functionId: payload.data.function,
+          functionArgs: payload.data.functionArguments,
+          typeArgs: [],
+        });
 
-      // Return in format compatible with wallet adapter response
-      return {
-        hash: txHash,
-        success: true,
-      };
+        // Return in format compatible with wallet adapter response
+        return {
+          hash: txHash,
+          success: true,
+        };
+      } catch (error: any) {
+        // Provide helpful error messages for common issues
+        if (error?.message?.includes("wallet not found") || 
+            error?.message?.includes("account not found")) {
+          throw new Error(
+            "Movement wallet not found. Please ensure your Privy wallet is connected and has a Movement wallet created. " +
+            "Try disconnecting and reconnecting your wallet."
+          );
+        }
+        throw error;
+      }
     }
 
     throw new Error("No wallet connected. Please connect a wallet (Petra, Nightly, or Privy) to continue.");

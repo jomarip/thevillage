@@ -341,7 +341,17 @@ export async function getProject(projectId: number): Promise<Partial<InvestmentP
       targetHours: targetHoursNum,
       isGrant,
     } as any;
-  } catch (error) {
+  } catch (error: any) {
+    // Handle specific Move errors gracefully
+    // E_PROJECT_NOT_FOUND (error code 2) means the project doesn't exist
+    // This is expected when querying projects that haven't been created yet
+    if (error?.message?.includes("E_PROJECT_NOT_FOUND") || 
+        error?.message?.includes("393218") || // Error code for E_PROJECT_NOT_FOUND
+        error?.message?.includes("ABORTED") ||
+        error?.error_code === "invalid_input") {
+      // Project doesn't exist - return null gracefully
+      return null;
+    }
     console.error("Error getting project:", error);
     return null;
   }
@@ -498,14 +508,15 @@ export async function getPendingRewards(address: string, poolId: number): Promis
 /**
  * Build transaction data for requesting membership
  * Move function signature: request_membership(applicant, registry_addr, desired_role, note)
+ * Note: applicant is automatically provided by the transaction sender
  */
 export function buildRequestMembershipTx(role: Role, note: string) {
   return {
     function: `${MODULE_PATHS.members}::request_membership` as `${string}::${string}::${string}`,
     functionArguments: [
-      MEMBERS_REGISTRY_ADDR, // registry_addr (first)
-      role, // desired_role (second) - u8
-      Array.from(stringToBytes(note)), // note (third) - vector<u8>
+      MEMBERS_REGISTRY_ADDR, // registry_addr (first parameter)
+      Number(role), // desired_role (second parameter) - u8, explicitly convert enum to number
+      Array.from(stringToBytes(note)), // note (third parameter) - vector<u8>
     ],
   };
 }

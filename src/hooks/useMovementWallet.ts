@@ -70,14 +70,34 @@ export function useMovementWallet() {
         
         // Extract wallet info
         const wallet = result.wallet || result;
+        
+        // Ensure address is properly formatted (Aptos/Movement addresses are 66 chars: 0x + 64 hex)
+        let address = wallet.address || wallet.walletAddress || '';
+        if (address && !address.startsWith('0x')) {
+          address = `0x${address}`;
+        }
+        
+        // Ensure public key is properly formatted
+        let publicKey = wallet.publicKey || wallet.publicKeyHex || '';
+        if (publicKey && !publicKey.startsWith('0x')) {
+          publicKey = `0x${publicKey}`;
+        }
+        
         const walletInfo = {
-          address: wallet.address || wallet.walletAddress,
-          publicKey: wallet.publicKey || wallet.publicKeyHex,
+          address,
+          publicKey,
           chainType: wallet.chainType || 'movement',
         };
         
+        // Validate wallet info
+        if (!address || !publicKey) {
+          throw new Error('Failed to create Movement wallet: missing address or public key');
+        }
+        
         // Store temporarily until user object updates
         setTempWallet(walletInfo);
+        
+        console.log('Movement wallet created:', { address, publicKey: publicKey.substring(0, 20) + '...' });
         
         return walletInfo;
       } catch (error) {
