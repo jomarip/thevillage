@@ -5,7 +5,7 @@ import { useUnifiedWallet } from "./useUnifiedWallet";
 import { isMember, getMemberRole, buildRequestMembershipTx, buildAcceptMembershipTx, buildApproveMembershipTx, buildRejectMembershipTx, listMembershipRequests } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
 import { Role, RoleLabels, RequestStatus } from "@/types/contract";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 
 /**
  * Hook to check if the connected wallet is a registered member
@@ -63,7 +63,6 @@ export function useIsValidator() {
 export function useRequestMembership() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ role, note }: { role: Role; note: string }) => {
@@ -76,20 +75,19 @@ export function useRequestMembership() {
 
       return response;
     },
-    onSuccess: (data, variables) => {
-      toast({
-        title: "Membership Requested",
-        description: `Your request to become a ${RoleLabels[variables.role]} has been submitted.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Membership Requested",
+        `Your request to become a ${RoleLabels[variables.role]} has been submitted.`,
+        txHash
+      );
       // Invalidate membership queries
       queryClient.invalidateQueries({ queryKey: queryKeys.user.membership(account?.address || "") });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Request Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Request Failed", message, guidance);
     },
   });
 }
@@ -100,7 +98,6 @@ export function useRequestMembership() {
 export function useAcceptMembership() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async () => {
@@ -113,20 +110,19 @@ export function useAcceptMembership() {
 
       return response;
     },
-    onSuccess: () => {
-      toast({
-        title: "Membership Accepted",
-        description: "You are now a registered member of The Village.",
-      });
+    onSuccess: (response) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Membership Accepted",
+        "You are now a registered member of The Village.",
+        txHash
+      );
       // Invalidate membership queries
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Acceptance Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Acceptance Failed", message, guidance);
     },
   });
 }
@@ -172,7 +168,6 @@ export function useMembershipRequests(statusFilter: RequestStatus = RequestStatu
 export function useApproveMembershipRequest() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (requestId: number) => {
@@ -185,21 +180,20 @@ export function useApproveMembershipRequest() {
 
       return response;
     },
-    onSuccess: (_, requestId) => {
-      toast({
-        title: "Request Approved",
-        description: `Membership request #${requestId} has been approved.`,
-      });
+    onSuccess: (response, requestId) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Request Approved",
+        `Membership request #${requestId} has been approved.`,
+        txHash
+      );
       // Invalidate membership requests queries
       queryClient.invalidateQueries({ queryKey: ["membershipRequests"] });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Approval Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Approval Failed", message, guidance);
     },
   });
 }
@@ -210,7 +204,6 @@ export function useApproveMembershipRequest() {
 export function useRejectMembershipRequest() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (requestId: number) => {
@@ -223,20 +216,19 @@ export function useRejectMembershipRequest() {
 
       return response;
     },
-    onSuccess: (_, requestId) => {
-      toast({
-        title: "Request Rejected",
-        description: `Membership request #${requestId} has been rejected.`,
-      });
+    onSuccess: (response, requestId) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Request Rejected",
+        `Membership request #${requestId} has been rejected.`,
+        txHash
+      );
       // Invalidate membership requests queries
       queryClient.invalidateQueries({ queryKey: ["membershipRequests"] });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Rejection Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Rejection Failed", message, guidance);
     },
   });
 }

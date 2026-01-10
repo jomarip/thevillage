@@ -15,6 +15,7 @@ import {
   Settings,
   ClipboardCheck,
   Shield,
+  HelpCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { href: "/treasury", label: "Treasury", icon: <Wallet className="h-5 w-5" />, requiresAuth: true },
   { href: "/governance", label: "Governance", icon: <Vote className="h-5 w-5" />, requiresAuth: true },
   { href: "/projects", label: "Projects", icon: <Building2 className="h-5 w-5" /> },
+  { href: "/help", label: "Help & FAQ", icon: <HelpCircle className="h-5 w-5" /> },
 ];
 
 const staffItems: NavItem[] = [

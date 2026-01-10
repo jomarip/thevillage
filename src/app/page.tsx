@@ -108,6 +108,140 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Getting Started Section */}
+      <section className="py-16 bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="container-app">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <Badge variant="secondary" className="mb-4">
+                New to The Village?
+              </Badge>
+              <h2 className="text-3xl font-bold text-text mb-4">Getting Started</h2>
+              <p className="text-text-muted max-w-2xl mx-auto">
+                Follow these simple steps to begin your journey with The Village
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold">1</span>
+                    </div>
+                    <CardTitle className="text-xl">Connect Your Wallet</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-text-muted">
+                    Choose from Privy (recommended), Petra, or Nightly wallet. Privy works best as it natively supports Movement Network.
+                  </p>
+                  {!connected && (
+                    <WalletConnectModal
+                      trigger={
+                        <Button variant="outline" size="sm" className="w-full">
+                          <Wallet className="h-4 w-4 mr-2" />
+                          Connect Wallet
+                        </Button>
+                      }
+                    />
+                  )}
+                  {connected && (
+                    <div className="flex items-center gap-2 text-success text-sm">
+                      <span className="w-2 h-2 rounded-full bg-success"></span>
+                      Wallet Connected
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold">2</span>
+                    </div>
+                    <CardTitle className="text-xl">Request Membership</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-text-muted">
+                    Select your role (Volunteer, Project Initiator, Investor, etc.) and submit a membership request. Approval typically takes 1-3 business days.
+                  </p>
+                  <Link href="/membership/request">
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Users className="h-4 w-4 mr-2" />
+                      Request Membership
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold">3</span>
+                    </div>
+                    <CardTitle className="text-xl">Log Volunteer Hours</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-text-muted">
+                    Once approved, start logging your volunteer hours. Each approved hour earns you 1 Time Dollar token.
+                  </p>
+                  <Link href="/volunteer/log-hours">
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Clock className="h-4 w-4 mr-2" />
+                      Log Hours
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-bold">4</span>
+                    </div>
+                    <CardTitle className="text-xl">Invest & Participate</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-text-muted">
+                    Use your Time Dollars to invest in community projects, participate in governance, and earn rewards through staking.
+                  </p>
+                  <div className="flex gap-2">
+                    <Link href="/projects" className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Projects
+                      </Button>
+                    </Link>
+                    <Link href="/governance" className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Vote className="h-4 w-4 mr-2" />
+                        Governance
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="mt-8 text-center">
+              <Link href="/help">
+                <Button variant="link" className="gap-2">
+                  Need help? Visit our FAQ
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How It Works */}
       <section className="py-16 bg-surface">
         <div className="container-app">
@@ -355,6 +489,12 @@ export default function HomePage() {
               >
                 Faucet
               </a>
+              <Link
+                href="/help"
+                className="text-sm text-text-muted hover:text-primary transition-colors"
+              >
+                Help & FAQ
+              </Link>
             </div>
           </div>
         </div>

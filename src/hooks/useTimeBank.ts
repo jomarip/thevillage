@@ -9,7 +9,7 @@ import {
   buildApproveTimeBankRequestTx 
 } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 import { TimeBankRequest, RequestStatus } from "@/types/contract";
 
 /**
@@ -49,7 +49,6 @@ export function usePendingRequests() {
 export function useCreateRequest() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ hours, activityId }: { hours: number; activityId: number }) => {
@@ -62,20 +61,19 @@ export function useCreateRequest() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Request Submitted",
-        description: `Your request for ${variables.hours} hour(s) has been submitted for approval.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Request Submitted",
+        `Your request for ${variables.hours} hour(s) has been submitted for approval.`,
+        txHash
+      );
       // Invalidate timebank queries
       queryClient.invalidateQueries({ queryKey: queryKeys.timebank.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Request Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Request Failed", message, guidance);
     },
   });
 }
@@ -86,7 +84,6 @@ export function useCreateRequest() {
 export function useApproveRequest() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (requestId: number) => {
@@ -99,22 +96,21 @@ export function useApproveRequest() {
 
       return response;
     },
-    onSuccess: (_, requestId) => {
-      toast({
-        title: "Request Approved",
-        description: `Request #${requestId} has been approved and Time Dollars have been minted.`,
-      });
+    onSuccess: (response, requestId) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Request Approved",
+        `Request #${requestId} has been approved and Time Dollars have been minted.`,
+        txHash
+      );
       // Invalidate timebank queries
       queryClient.invalidateQueries({ queryKey: queryKeys.timebank.all });
       // Also invalidate time token balances as they may have changed
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance("") });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Approval Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Approval Failed", message, guidance);
     },
   });
 }

@@ -10,7 +10,6 @@ import {
 } from "@/lib/aptos";
 import { ProposalStatus } from "@/types/contract";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
 import { VotingMechanism, VoteChoice, VoteChoiceLabels } from "@/types/contract";
 
 /**
@@ -43,7 +42,6 @@ export function useProposals(statusFilter?: ProposalStatus) {
 export function useCreateProposal() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
@@ -66,20 +64,19 @@ export function useCreateProposal() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Proposal Created",
-        description: `Your proposal "${variables.title}" has been submitted.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Proposal Created",
+        `Your proposal "${variables.title}" has been submitted.`,
+        txHash
+      );
       // Invalidate governance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.governance.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Proposal Creation Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Proposal Creation Failed", message, guidance);
     },
   });
 }
@@ -90,7 +87,6 @@ export function useCreateProposal() {
 export function useVote() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({
@@ -109,21 +105,20 @@ export function useVote() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Vote Cast",
-        description: `You voted "${VoteChoiceLabels[variables.choice]}" on proposal #${variables.proposalId}.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Vote Cast",
+        `You voted "${VoteChoiceLabels[variables.choice]}" on proposal #${variables.proposalId}.`,
+        txHash
+      );
       // Invalidate governance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.governance.proposal(variables.proposalId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.governance.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Vote Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Vote Failed", message, guidance);
     },
   });
 }

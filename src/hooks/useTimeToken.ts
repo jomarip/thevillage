@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUnifiedWallet } from "./useUnifiedWallet";
 import { getTimeTokenBalance, buildTransferTimeTokenTx } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 
 /**
  * Hook to get the Time Token balance for the connected wallet
@@ -38,7 +38,6 @@ export function useTimeTokenBalanceOf(address: string | undefined) {
 export function useTransferTimeToken() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ recipient, amount }: { recipient: string; amount: number }) => {
@@ -51,21 +50,20 @@ export function useTransferTimeToken() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Transfer Successful",
-        description: `Transferred ${variables.amount} Time Dollars to ${variables.recipient.slice(0, 10)}...`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Transfer Successful",
+        `Transferred ${variables.amount} Time Dollars to ${variables.recipient.slice(0, 10)}...`,
+        txHash
+      );
       // Invalidate balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance(account?.address || "") });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance(variables.recipient) });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Transfer Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Transfer Failed", message, guidance);
     },
   });
 }

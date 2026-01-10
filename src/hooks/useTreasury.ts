@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUnifiedWallet } from "./useUnifiedWallet";
 import { getTreasuryBalance, buildDepositTx, buildWithdrawTx } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 import { octasToApt, aptToOctas } from "@/lib/config";
 
 /**
@@ -27,7 +27,6 @@ export function useTreasuryBalance() {
 export function useDeposit() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (amountInApt: number) => {
@@ -41,21 +40,20 @@ export function useDeposit() {
 
       return response;
     },
-    onSuccess: (_, amountInApt) => {
-      toast({
-        title: "Deposit Successful",
-        description: `Deposited ${amountInApt} APT to your treasury account.`,
-      });
+    onSuccess: (response, amountInApt) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Deposit Successful",
+        `Deposited ${amountInApt} APT to your treasury account.`,
+        txHash
+      );
       // Invalidate balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.user.treasuryBalance(account?.address || "") });
       queryClient.invalidateQueries({ queryKey: queryKeys.treasury.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Deposit Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Deposit Failed", message, guidance);
     },
   });
 }
@@ -66,7 +64,6 @@ export function useDeposit() {
 export function useWithdraw() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (amountInApt: number) => {
@@ -80,21 +77,20 @@ export function useWithdraw() {
 
       return response;
     },
-    onSuccess: (_, amountInApt) => {
-      toast({
-        title: "Withdrawal Successful",
-        description: `Withdrew ${amountInApt} APT from your treasury account.`,
-      });
+    onSuccess: (response, amountInApt) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Withdrawal Successful",
+        `Withdrew ${amountInApt} APT from your treasury account.`,
+        txHash
+      );
       // Invalidate balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.user.treasuryBalance(account?.address || "") });
       queryClient.invalidateQueries({ queryKey: queryKeys.treasury.all });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Withdrawal Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Withdrawal Failed", message, guidance);
     },
   });
 }

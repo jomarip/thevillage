@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUnifiedWallet } from "./useUnifiedWallet";
 import { isWhitelisted, buildWhitelistAddressTx } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 
 /**
  * Hook to check if the connected wallet is whitelisted (KYC verified)
@@ -26,7 +26,6 @@ export function useIsWhitelisted() {
 export function useWhitelistAddress() {
   const { signAndSubmitTransaction } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (addressToWhitelist: string) => {
@@ -37,31 +36,19 @@ export function useWhitelistAddress() {
 
       return response;
     },
-    onSuccess: (_, addressToWhitelist) => {
-      toast({
-        title: "Address Whitelisted",
-        description: `Successfully whitelisted ${addressToWhitelist.slice(0, 10)}...`,
-      });
+    onSuccess: (response, addressToWhitelist) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Address Whitelisted",
+        `Successfully whitelisted ${addressToWhitelist.slice(0, 10)}...`,
+        txHash
+      );
       // Invalidate the whitelist query for the address
       queryClient.invalidateQueries({ queryKey: queryKeys.user.whitelist(addressToWhitelist) });
     },
     onError: (error: Error) => {
-      // Provide more helpful error messages
-      let errorMessage = error.message;
-      
-      if (error.message.includes("Network configuration error") || 
-          error.message.includes("Invalid network") ||
-          error.message.includes("custom network not supported")) {
-        errorMessage = "Network error detected. The system will automatically try Privy wallet if available. " +
-                      "For best results, use Privy wallet (email login) which natively supports Movement Network.";
-      }
-      
-      toast({
-        title: "Whitelist Failed",
-        description: errorMessage,
-        variant: "destructive",
-        duration: 8000, // Show longer for network errors
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Whitelist Failed", message, guidance);
     },
   });
 }

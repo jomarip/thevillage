@@ -13,6 +13,7 @@
     "@aptos-labs/wallet-adapter-react": "^3.7.0",
     "@aptos-labs/wallet-standard": "^0.5.0",
     "@privy-io/react-auth": "^2.0.0",
+    "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
     "@radix-ui/react-label": "^2.1.0",

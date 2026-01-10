@@ -9,7 +9,7 @@ import {
   buildUnstakeTx 
 } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
-import { useToast } from "@/components/ui/use-toast";
+import { showTransactionSuccess, showErrorWithGuidance, parseErrorForGuidance } from "@/lib/toast-helpers";
 
 /**
  * Hook to get pending rewards for a specific pool
@@ -31,7 +31,6 @@ export function usePendingRewards(poolId: number) {
 export function useStake() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ poolId, amount }: { poolId: number; amount: number }) => {
@@ -44,21 +43,20 @@ export function useStake() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Stake Successful",
-        description: `Staked ${variables.amount} tokens in pool #${variables.poolId}.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Stake Successful",
+        `Staked ${variables.amount} tokens in pool #${variables.poolId}.`,
+        txHash
+      );
       // Invalidate rewards and balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.rewards.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance(account?.address || "") });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Stake Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Stake Failed", message, guidance);
     },
   });
 }
@@ -69,7 +67,6 @@ export function useStake() {
 export function useClaimRewards() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (poolId: number) => {
@@ -82,21 +79,20 @@ export function useClaimRewards() {
 
       return response;
     },
-    onSuccess: (_, poolId) => {
-      toast({
-        title: "Rewards Claimed",
-        description: `Successfully claimed rewards from pool #${poolId}.`,
-      });
+    onSuccess: (response, poolId) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Rewards Claimed",
+        `Successfully claimed rewards from pool #${poolId}.`,
+        txHash
+      );
       // Invalidate rewards and balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.rewards.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance(account?.address || "") });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Claim Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Claim Failed", message, guidance);
     },
   });
 }
@@ -107,7 +103,6 @@ export function useClaimRewards() {
 export function useUnstake() {
   const { signAndSubmitTransaction, account } = useUnifiedWallet();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ poolId, amount }: { poolId: number; amount: number }) => {
@@ -120,21 +115,20 @@ export function useUnstake() {
 
       return response;
     },
-    onSuccess: (_, variables) => {
-      toast({
-        title: "Unstake Successful",
-        description: `Unstaked ${variables.amount} tokens from pool #${variables.poolId}.`,
-      });
+    onSuccess: (response, variables) => {
+      const txHash = typeof response === "string" ? response : response?.hash;
+      showTransactionSuccess(
+        "Unstake Successful",
+        `Unstaked ${variables.amount} tokens from pool #${variables.poolId}.`,
+        txHash
+      );
       // Invalidate rewards and balance queries
       queryClient.invalidateQueries({ queryKey: queryKeys.rewards.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.timeTokenBalance(account?.address || "") });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Unstake Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      const { message, guidance } = parseErrorForGuidance(error);
+      showErrorWithGuidance("Unstake Failed", message, guidance);
     },
   });
 }
