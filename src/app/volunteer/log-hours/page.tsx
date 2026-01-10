@@ -37,17 +37,7 @@ import {
 import Link from "next/link";
 
 // Activity types with IDs
-const ACTIVITIES = [
-  { id: 1, name: "Tutoring", description: "Academic tutoring and homework help" },
-  { id: 2, name: "Mentoring", description: "Youth mentorship and guidance" },
-  { id: 3, name: "Community Service", description: "General volunteer work" },
-  { id: 4, name: "Home Repair", description: "Helping with home maintenance" },
-  { id: 5, name: "Food Distribution", description: "Food bank and meal prep" },
-  { id: 6, name: "Transportation", description: "Driving community members" },
-  { id: 7, name: "Administrative", description: "Office and organizational support" },
-  { id: 8, name: "Event Support", description: "Helping with community events" },
-  { id: 9, name: "Other", description: "Other volunteer activities" },
-];
+import { ACTIVITIES } from "@/lib/activities";
 
 export default function LogHoursPage() {
   const router = useRouter();

@@ -14,6 +14,7 @@ import {
   POOL_REGISTRY_ADDR,
   GOVERNANCE_ADDR,
   BANK_REGISTRY_ADDR,
+  PROJECT_REGISTRY_ADDR,
   TOKEN_ADMIN_ADDR,
   MODULE_PATHS,
   getNetworkType,
@@ -165,6 +166,41 @@ export async function getTimeBankRequest(requestId: number): Promise<TimeBankReq
   }
 }
 
+/**
+ * List time bank requests, optionally filtered by status
+ * @param statusFilter - 0 = Pending, 1 = Approved, 2 = Rejected, 255 = All
+ */
+export async function listTimeBankRequests(statusFilter?: RequestStatus): Promise<TimeBankRequest[]> {
+  try {
+    // Convert RequestStatus enum to contract status filter (0, 1, 2, or 255 for all)
+    const filterValue = statusFilter !== undefined ? statusFilter : 255;
+    
+    const result = await move.view({
+      payload: {
+        function: `${MODULE_PATHS.timebank}::list_requests`,
+        functionArguments: [BANK_REGISTRY_ADDR, filterValue],
+      },
+    });
+    
+    // Returns: vector<u64> - array of request IDs
+    const requestIds = result as string[];
+    
+    // Fetch details for each request
+    const requests = await Promise.all(
+      requestIds.map(async (idStr) => {
+        const id = parseInt(idStr);
+        return await getTimeBankRequest(id);
+      })
+    );
+    
+    // Filter out null results and return
+    return requests.filter((req): req is TimeBankRequest => req !== null);
+  } catch (error) {
+    console.error("Error listing timebank requests:", error);
+    return [];
+  }
+}
+
 // ============================================================================
 // View Functions - Time Token Module
 // ============================================================================
@@ -249,6 +285,84 @@ export async function getInvestmentPool(poolId: number): Promise<InvestmentPool 
 }
 
 // ============================================================================
+// View Functions - Project Registry Module
+// ============================================================================
+
+/**
+ * Get project details by ID
+ */
+export async function getProject(projectId: number): Promise<Partial<InvestmentPool> | null> {
+  try {
+    const result = await move.view({
+      payload: {
+        function: `${MODULE_PATHS.project_registry}::get_project`,
+        functionArguments: [projectId, PROJECT_REGISTRY_ADDR],
+      },
+    });
+    // Returns: (address, vector<u8>, u64, u64, bool, u8, u64)
+    // [proposer, metadata_cid, target_usdc, target_hours, is_grant, status, created_at]
+    const [proposer, metadataCidBytes, targetUsdc, targetHours, isGrant, status, createdAt] = result as [
+      string, number[], string, string, boolean, number, string
+    ];
+    
+    // Note: metadata_cid would need to be fetched from IPFS or similar
+    // For now, we'll return basic project data that can be merged with mock data
+    return {
+      id: projectId,
+      borrower: proposer,
+      targetAmount: parseInt(targetUsdc),
+      currentTotal: 0, // Would need to query pool separately
+      status: status as PoolStatus,
+      interestRate: 0,
+      duration: 0,
+      createdAt: parseInt(createdAt),
+      // Additional fields for merging with mock data
+      metadataCid: bytesToString(metadataCidBytes),
+      targetHours: parseInt(targetHours),
+      isGrant,
+    } as any;
+  } catch (error) {
+    console.error("Error getting project:", error);
+    return null;
+  }
+}
+
+/**
+ * List projects, optionally filtered by status
+ * @param statusFilter - PoolStatus enum value, or undefined for all
+ */
+export async function listProjects(statusFilter?: PoolStatus): Promise<Partial<InvestmentPool>[]> {
+  try {
+    // Convert status filter: 0-4 for statuses, 255 for all
+    const filterValue = statusFilter !== undefined ? statusFilter : 255;
+    
+    const result = await move.view({
+      payload: {
+        function: `${MODULE_PATHS.project_registry}::list_projects`,
+        functionArguments: [PROJECT_REGISTRY_ADDR, filterValue],
+      },
+    });
+    
+    // Returns: vector<u64> - array of project IDs
+    const projectIds = result as string[];
+    
+    // Fetch details for each project
+    const projects = await Promise.all(
+      projectIds.map(async (idStr) => {
+        const id = parseInt(idStr);
+        return await getProject(id);
+      })
+    );
+    
+    // Filter out null results
+    return projects.filter((proj): proj is Partial<InvestmentPool> => proj !== null);
+  } catch (error) {
+    console.error("Error listing projects:", error);
+    return [];
+  }
+}
+
+// ============================================================================
 // View Functions - Governance Module
 // ============================================================================
 
@@ -285,6 +399,41 @@ export async function getProposal(proposalId: number): Promise<Proposal | null> 
   } catch (error) {
     console.error("Error getting proposal:", error);
     return null;
+  }
+}
+
+/**
+ * List proposals, optionally filtered by status
+ * @param statusFilter - ProposalStatus enum value, or undefined for all
+ */
+export async function listProposals(statusFilter?: ProposalStatus): Promise<Proposal[]> {
+  try {
+    // Convert status filter: 0-4 for statuses, 255 for all
+    const filterValue = statusFilter !== undefined ? statusFilter : 255;
+    
+    const result = await move.view({
+      payload: {
+        function: `${MODULE_PATHS.governance}::list_proposals`,
+        functionArguments: [GOVERNANCE_ADDR, filterValue],
+      },
+    });
+    
+    // Returns: vector<u64> - array of proposal IDs
+    const proposalIds = result as string[];
+    
+    // Fetch details for each proposal
+    const proposals = await Promise.all(
+      proposalIds.map(async (idStr) => {
+        const id = parseInt(idStr);
+        return await getProposal(id);
+      })
+    );
+    
+    // Filter out null results
+    return proposals.filter((prop): prop is Proposal => prop !== null);
+  } catch (error) {
+    console.error("Error listing proposals:", error);
+    return [];
   }
 }
 

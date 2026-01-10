@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUnifiedWallet } from "@/hooks";
@@ -21,6 +22,21 @@ import {
 
 export default function HomePage() {
   const { connected } = useUnifiedWallet();
+
+  // Ensure wallet detection hooks initialize on page load
+  // This helps with wallets that inject after initial render
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Trigger wallet detection by accessing window objects
+      // This ensures wallet detection hooks run even if wallets aren't immediately available
+      const timer = setTimeout(() => {
+        // Access wallet objects to trigger detection
+        void (window as any).aptos;
+        void (window as any).nightly?.aptos;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

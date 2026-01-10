@@ -5,7 +5,12 @@ const nextConfig = {
   
   // Optimize images
   images: {
-    domains: ['explorer.aptoslabs.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'explorer.aptoslabs.com',
+      },
+    ],
   },
   
   // Webpack configuration for Aptos SDK compatibility

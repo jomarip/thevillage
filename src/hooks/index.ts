@@ -42,6 +42,8 @@ export {
 // TimeBank hooks
 export {
   useTimeBankRequest,
+  useTimeBankRequests,
+  usePendingRequests,
   useCreateRequest,
   useApproveRequest,
   useTimeBank,
@@ -50,10 +52,17 @@ export {
 // Governance hooks
 export {
   useProposal,
+  useProposals,
   useCreateProposal,
   useVote,
   useGovernance,
 } from "./useGovernance";
+
+// Projects hooks
+export {
+  useProject,
+  useProjects,
+} from "./useProjects";
 
 // Rewards hooks
 export {

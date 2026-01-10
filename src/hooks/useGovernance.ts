@@ -3,10 +3,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUnifiedWallet } from "./useUnifiedWallet";
 import { 
-  getProposal, 
+  getProposal,
+  listProposals,
   buildCreateProposalTx, 
   buildVoteTx 
 } from "@/lib/aptos";
+import { ProposalStatus } from "@/types/contract";
 import { queryKeys } from "@/providers/QueryProvider";
 import { useToast } from "@/components/ui/use-toast";
 import { VotingMechanism, VoteChoice, VoteChoiceLabels } from "@/types/contract";
@@ -20,6 +22,18 @@ export function useProposal(proposalId: number) {
     queryFn: () => getProposal(proposalId),
     enabled: proposalId > 0,
     staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * Hook to list proposals, optionally filtered by status
+ */
+export function useProposals(statusFilter?: ProposalStatus) {
+  return useQuery({
+    queryKey: queryKeys.governance.proposals(),
+    queryFn: () => listProposals(statusFilter),
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 60 * 1000, // Refetch every minute
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { MainLayout } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -24,10 +24,13 @@ import {
   Users,
   DollarSign,
   ArrowRight,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { PoolStatus, PoolStatusLabels } from "@/types/contract";
 import { formatNumber, calculatePercentage, aptToUsd, formatUsd } from "@/lib/utils";
 import { octasToApt } from "@/lib/config";
+import { useProjects } from "@/hooks";
 
 // Mock projects for demonstration
 const MOCK_PROJECTS = [
@@ -100,14 +103,78 @@ function getStatusBadgeVariant(status: PoolStatus): "default" | "secondary" | "s
   return map[status];
 }
 
+// Extended project type that includes both mock and real data
+interface ExtendedProject {
+  id: number;
+  name: string;
+  description: string;
+  location: string;
+  targetFunding: number;
+  currentFunding: number;
+  targetHours: number;
+  currentHours: number;
+  status: PoolStatus;
+  category: string;
+  createdAt: number;
+  imageUrl: string | null;
+  isReal?: boolean; // Flag to indicate if this is from blockchain
+  proposer?: string; // From blockchain
+}
+
 export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  
+  // Fetch real projects from blockchain
+  const { data: realProjects = [], isLoading: projectsLoading, refetch } = useProjects();
 
-  const categories = [...new Set(MOCK_PROJECTS.map((p) => p.category))];
+  // Merge mock and real projects
+  // Real projects take precedence if IDs match, otherwise append
+  const allProjects = useMemo<ExtendedProject[]>(() => {
+    const merged: ExtendedProject[] = [];
+    const realProjectIds = new Set(realProjects.map(p => p.id));
+    
+    // Add real projects first (marked as real)
+    realProjects.forEach((realProj) => {
+      // Find matching mock project for additional metadata
+      const mockMatch = MOCK_PROJECTS.find(m => m.id === realProj.id);
+      
+      merged.push({
+        id: realProj.id,
+        name: mockMatch?.name || `Project #${realProj.id}`,
+        description: mockMatch?.description || "Community project from blockchain",
+        location: mockMatch?.location || "Homewood, PA",
+        targetFunding: realProj.targetAmount || mockMatch?.targetFunding || 0,
+        currentFunding: realProj.currentTotal || mockMatch?.currentFunding || 0,
+        targetHours: (realProj as any).targetHours || mockMatch?.targetHours || 0,
+        currentHours: mockMatch?.currentHours || 0,
+        status: realProj.status,
+        category: mockMatch?.category || "Community",
+        createdAt: realProj.createdAt || mockMatch?.createdAt || Date.now(),
+        imageUrl: mockMatch?.imageUrl || null,
+        isReal: true,
+        proposer: realProj.borrower,
+      });
+    });
+    
+    // Add mock projects that don't have real counterparts
+    MOCK_PROJECTS.forEach((mockProj) => {
+      if (!realProjectIds.has(mockProj.id)) {
+        merged.push({
+          ...mockProj,
+          isReal: false,
+        });
+      }
+    });
+    
+    // Sort by ID (real projects typically have higher IDs)
+    return merged.sort((a, b) => b.id - a.id);
+  }, [realProjects]);
 
-  const filteredProjects = MOCK_PROJECTS.filter((project) => {
+  const categories = [...new Set(allProjects.map((p) => p.category))];
+
+  const filteredProjects = allProjects.filter((project) => {
     const matchesSearch =
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -130,8 +197,17 @@ export default function ProjectsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetch()}
+              disabled={projectsLoading}
+              title="Refresh projects"
+            >
+              <RefreshCw className={`h-4 w-4 ${projectsLoading ? "animate-spin" : ""}`} />
+            </Button>
             <Badge variant="secondary" className="text-lg px-3 py-1">
-              {MOCK_PROJECTS.filter((p) => p.status === PoolStatus.Active).length} Active
+              {allProjects.filter((p) => p.status === PoolStatus.Active).length} Active
             </Badge>
           </div>
         </div>
@@ -144,7 +220,7 @@ export default function ProjectsPage() {
                 <Building2 className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{MOCK_PROJECTS.length}</p>
+                <p className="text-2xl font-bold">{allProjects.length}</p>
                 <p className="text-sm text-text-muted">Total Projects</p>
               </div>
             </CardContent>
@@ -157,7 +233,7 @@ export default function ProjectsPage() {
               <div>
                 <p className="text-2xl font-bold">
                   {formatUsd(
-                    aptToUsd(octasToApt(MOCK_PROJECTS.reduce((acc, p) => acc + p.currentFunding, 0)))
+                    aptToUsd(octasToApt(allProjects.reduce((acc, p) => acc + p.currentFunding, 0)))
                   )}
                 </p>
                 <p className="text-sm text-text-muted">USD Raised</p>
@@ -171,7 +247,7 @@ export default function ProjectsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {formatNumber(MOCK_PROJECTS.reduce((acc, p) => acc + p.currentHours, 0), 0)}
+                  {formatNumber(allProjects.reduce((acc, p) => acc + p.currentHours, 0), 0)}
                 </p>
                 <p className="text-sm text-text-muted">Hours Contributed</p>
               </div>
@@ -184,7 +260,7 @@ export default function ProjectsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {MOCK_PROJECTS.filter((p) => p.status === PoolStatus.Funded || p.status === PoolStatus.Completed).length}
+                  {allProjects.filter((p) => p.status === PoolStatus.Funded || p.status === PoolStatus.Completed).length}
                 </p>
                 <p className="text-sm text-text-muted">Completed</p>
               </div>
@@ -268,10 +344,17 @@ export default function ProjectsPage() {
                     
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <Badge variant={getStatusBadgeVariant(project.status)} className="mb-2">
-                            {PoolStatusLabels[project.status]}
-                          </Badge>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant={getStatusBadgeVariant(project.status)}>
+                              {PoolStatusLabels[project.status]}
+                            </Badge>
+                            {project.isReal && (
+                              <Badge variant="outline" className="text-xs">
+                                On-Chain
+                              </Badge>
+                            )}
+                          </div>
                           <CardTitle className="text-lg">{project.name}</CardTitle>
                         </div>
                       </div>

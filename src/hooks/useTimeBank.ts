@@ -3,13 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUnifiedWallet } from "./useUnifiedWallet";
 import { 
-  getTimeBankRequest, 
+  getTimeBankRequest,
+  listTimeBankRequests,
   buildCreateTimeBankRequestTx, 
   buildApproveTimeBankRequestTx 
 } from "@/lib/aptos";
 import { queryKeys } from "@/providers/QueryProvider";
 import { useToast } from "@/components/ui/use-toast";
-import { TimeBankRequest } from "@/types/contract";
+import { TimeBankRequest, RequestStatus } from "@/types/contract";
 
 /**
  * Hook to get a specific timebank request
@@ -21,6 +22,25 @@ export function useTimeBankRequest(requestId: number) {
     enabled: requestId > 0,
     staleTime: 30 * 1000, // 30 seconds
   });
+}
+
+/**
+ * Hook to list timebank requests, optionally filtered by status
+ */
+export function useTimeBankRequests(statusFilter?: RequestStatus) {
+  return useQuery({
+    queryKey: queryKeys.timebank.requests(statusFilter),
+    queryFn: () => listTimeBankRequests(statusFilter),
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 60 * 1000, // Refetch every minute for pending requests
+  });
+}
+
+/**
+ * Hook specifically for pending requests (most common use case)
+ */
+export function usePendingRequests() {
+  return useTimeBankRequests(RequestStatus.Pending);
 }
 
 /**

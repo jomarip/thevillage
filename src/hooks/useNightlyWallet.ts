@@ -70,6 +70,27 @@ export function useNightlyWallet() {
     }
   }, []);
 
+  // Retry wallet detection after a short delay if not found initially
+  // This helps with wallets that inject after initial page load
+  useEffect(() => {
+    if (nightlyWallet || typeof window === "undefined") return;
+    
+    const retryDetection = setTimeout(() => {
+      try {
+        const wallets = getAptosWallets();
+        const aptosWallets = wallets.aptosWallets;
+        const nightly = aptosWallets.find((w) => w.name === "Nightly");
+        if (nightly && !state.adapter) {
+          setState((prev) => ({ ...prev, adapter: nightly as AptosWallet }));
+        }
+      } catch (error) {
+        // Silently fail
+      }
+    }, 500);
+    
+    return () => clearTimeout(retryDetection);
+  }, [nightlyWallet, state.adapter]);
+
   // Initialize adapter when Nightly is detected
   useEffect(() => {
     if (nightlyWallet && !state.adapter) {

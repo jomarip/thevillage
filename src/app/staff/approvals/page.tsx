@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useUnifiedWallet } from "@/hooks";
 import { MainLayout } from "@/components/Navigation";
-import { useMemberStatus, useApproveRequest } from "@/hooks";
+import { useMemberStatus, useApproveRequest, usePendingRequests } from "@/hooks";
 import { WalletConnectModal } from "@/components/WalletConnectModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,53 +25,33 @@ import {
   Search,
   Clock,
   User,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { formatAddress } from "@/lib/config";
 import { formatRelativeTime } from "@/lib/utils";
 import { RequestStatus, RequestStatusLabels } from "@/types/contract";
-
-// Mock pending requests for demonstration
-const MOCK_REQUESTS = [
-  {
-    id: 1,
-    requester: "0x1234567890abcdef1234567890abcdef12345678",
-    hours: 4,
-    activityId: 1,
-    activityName: "Tutoring",
-    status: RequestStatus.Pending,
-    createdAt: Date.now() - 3600000, // 1 hour ago
-  },
-  {
-    id: 2,
-    requester: "0xabcdef1234567890abcdef1234567890abcdef12",
-    hours: 2,
-    activityId: 3,
-    activityName: "Community Service",
-    status: RequestStatus.Pending,
-    createdAt: Date.now() - 7200000, // 2 hours ago
-  },
-  {
-    id: 3,
-    requester: "0x9876543210fedcba9876543210fedcba98765432",
-    hours: 6,
-    activityId: 4,
-    activityName: "Home Repair",
-    status: RequestStatus.Pending,
-    createdAt: Date.now() - 86400000, // 1 day ago
-  },
-];
+import { getActivityName } from "@/lib/activities";
 
 export default function StaffApprovalsPage() {
   const { connected } = useUnifiedWallet();
   const { isMember, isValidator, isLoading: memberLoading } = useMemberStatus();
   const { mutate: approveRequest, isPending: isApproving } = useApproveRequest();
+  const { data: pendingRequests = [], isLoading: requestsLoading, refetch } = usePendingRequests();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<typeof MOCK_REQUESTS[0] | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<typeof pendingRequests[0] | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
 
-  const filteredRequests = MOCK_REQUESTS.filter(
+  // Add activity names to requests
+  const requestsWithActivityNames = useMemo(() => {
+    return pendingRequests.map((req) => ({
+      ...req,
+      activityName: getActivityName(req.activityId),
+    }));
+  }, [pendingRequests]);
+
+  const filteredRequests = requestsWithActivityNames.filter(
     (req) =>
       req.requester.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.activityName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -83,6 +63,7 @@ export default function StaffApprovalsPage() {
       onSuccess: () => {
         setShowApprovalDialog(false);
         setSelectedRequest(null);
+        // The query will automatically refetch due to query invalidation in the hook
       },
     });
   };
@@ -171,16 +152,33 @@ export default function StaffApprovalsPage() {
         {/* Requests List */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5" />
-              Pending Requests
-            </CardTitle>
-            <CardDescription>
-              Click on a request to review and approve
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5" />
+                  Pending Requests
+                </CardTitle>
+                <CardDescription>
+                  Click on a request to review and approve
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => refetch()}
+                disabled={requestsLoading}
+              >
+                <Loader2 className={`h-4 w-4 ${requestsLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {filteredRequests.length === 0 ? (
+            {requestsLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
+                <p className="text-text-muted">Loading requests...</p>
+              </div>
+            ) : filteredRequests.length === 0 ? (
               <div className="text-center py-8 text-text-muted">
                 <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <p>No pending requests</p>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useUnifiedWallet } from "@/hooks";
 import Link from "next/link";
 import { MainLayout } from "@/components/Navigation";
-import { useMemberStatus } from "@/hooks";
+import { useMemberStatus, useProposals } from "@/hooks";
 import { WalletConnectModal } from "@/components/WalletConnectModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,8 @@ import {
   XCircle,
   Clock,
   Users,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import {
   ProposalStatus,
@@ -27,6 +29,7 @@ import {
   ProposalStatusColors,
   VotingMechanism,
   VotingMechanismLabels,
+  Proposal,
 } from "@/types/contract";
 import { formatNumber, formatRelativeTime, calculatePercentage } from "@/lib/utils";
 import { formatAddress } from "@/lib/config";
@@ -88,12 +91,54 @@ function getStatusBadgeVariant(status: ProposalStatus): "default" | "secondary" 
   return map[status];
 }
 
+// Extended proposal type that includes both mock and real data
+interface ExtendedProposal extends Proposal {
+  isReal?: boolean; // Flag to indicate if this is from blockchain
+}
+
 export default function GovernancePage() {
   const { connected } = useUnifiedWallet();
   const { isMember, isLoading: memberLoading } = useMemberStatus();
   const [activeTab, setActiveTab] = useState("all");
+  
+  // Fetch real proposals from blockchain
+  const { data: realProposals = [], isLoading: proposalsLoading, refetch } = useProposals();
 
-  const filteredProposals = MOCK_PROPOSALS.filter((proposal) => {
+  // Merge mock and real proposals
+  // Real proposals take precedence if IDs match, otherwise append
+  const allProposals = useMemo<ExtendedProposal[]>(() => {
+    const merged: ExtendedProposal[] = [];
+    const realProposalIds = new Set(realProposals.map(p => p.id));
+    
+    // Add real proposals first (marked as real)
+    realProposals.forEach((realProp) => {
+      // Find matching mock proposal for additional metadata
+      const mockMatch = MOCK_PROPOSALS.find(m => m.id === realProp.id);
+      
+      merged.push({
+        ...realProp,
+        description: mockMatch?.description || realProp.description || "Governance proposal from blockchain",
+        createdAt: mockMatch?.createdAt || realProp.createdAt || Date.now(),
+        endsAt: mockMatch?.endsAt || realProp.endsAt || Date.now() + 86400000 * 7,
+        isReal: true,
+      });
+    });
+    
+    // Add mock proposals that don't have real counterparts
+    MOCK_PROPOSALS.forEach((mockProp) => {
+      if (!realProposalIds.has(mockProp.id)) {
+        merged.push({
+          ...mockProp,
+          isReal: false,
+        });
+      }
+    });
+    
+    // Sort by ID (real proposals typically have higher IDs)
+    return merged.sort((a, b) => b.id - a.id);
+  }, [realProposals]);
+
+  const filteredProposals = allProposals.filter((proposal) => {
     if (activeTab === "all") return true;
     if (activeTab === "active") return proposal.status === ProposalStatus.Active;
     if (activeTab === "passed") return proposal.status === ProposalStatus.Passed;
@@ -157,12 +202,23 @@ export default function GovernancePage() {
               Vote on proposals to shape the community
             </p>
           </div>
-          <Link href="/governance/create">
-            <Button className="gap-2">
-              <Plus className="h-5 w-5" />
-              Create Proposal
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetch()}
+              disabled={proposalsLoading}
+              title="Refresh proposals"
+            >
+              <RefreshCw className={`h-4 w-4 ${proposalsLoading ? "animate-spin" : ""}`} />
             </Button>
-          </Link>
+            <Link href="/governance/create">
+              <Button className="gap-2">
+                <Plus className="h-5 w-5" />
+                Create Proposal
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
@@ -173,7 +229,7 @@ export default function GovernancePage() {
                 <Vote className="h-6 w-6 text-secondary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{MOCK_PROPOSALS.length}</p>
+                <p className="text-2xl font-bold">{allProposals.length}</p>
                 <p className="text-sm text-text-muted">Total Proposals</p>
               </div>
             </CardContent>
@@ -185,7 +241,7 @@ export default function GovernancePage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {MOCK_PROPOSALS.filter((p) => p.status === ProposalStatus.Active).length}
+                  {allProposals.filter((p) => p.status === ProposalStatus.Active).length}
                 </p>
                 <p className="text-sm text-text-muted">Active Votes</p>
               </div>
@@ -198,7 +254,7 @@ export default function GovernancePage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">
-                  {MOCK_PROPOSALS.reduce((acc, p) => acc + p.votesYes + p.votesNo + p.votesAbstain, 0)}
+                  {allProposals.reduce((acc, p) => acc + p.votesYes + p.votesNo + p.votesAbstain, 0)}
                 </p>
                 <p className="text-sm text-text-muted">Total Votes Cast</p>
               </div>
@@ -219,7 +275,12 @@ export default function GovernancePage() {
             </Tabs>
           </CardHeader>
           <CardContent>
-            {filteredProposals.length === 0 ? (
+            {proposalsLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
+                <p className="text-text-muted">Loading proposals...</p>
+              </div>
+            ) : filteredProposals.length === 0 ? (
               <div className="text-center py-8 text-text-muted">
                 <Vote className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <p>No proposals found</p>
@@ -244,6 +305,11 @@ export default function GovernancePage() {
                                 <Badge variant="outline">
                                   {VotingMechanismLabels[proposal.votingMechanism]}
                                 </Badge>
+                                {proposal.isReal && (
+                                  <Badge variant="outline" className="text-xs">
+                                    On-Chain
+                                  </Badge>
+                                )}
                               </div>
                               <h3 className="font-semibold text-lg">{proposal.title}</h3>
                               <p className="text-sm text-text-muted truncate-2">
