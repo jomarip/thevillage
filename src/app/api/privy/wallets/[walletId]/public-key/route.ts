@@ -94,7 +94,6 @@ export async function GET(
     const wallet = await response.json();
 
     // Privy returns `public_key` on the wallet object
-    // Return it in a consistent format (ensure 0x prefix if present)
     const publicKey = wallet.public_key || null;
     
     if (!publicKey) {
@@ -104,7 +103,53 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ publicKey });
+    // Normalize public key: Ed25519 public keys must be exactly 32 bytes (64 hex characters)
+    // Privy may return it with leading "00" padding or without "0x" prefix
+    let normalizedKey = publicKey;
+    
+    // Remove "0x" prefix if present
+    if (normalizedKey.startsWith('0x') || normalizedKey.startsWith('0X')) {
+      normalizedKey = normalizedKey.slice(2);
+    }
+    
+    // Ed25519 public keys are exactly 32 bytes = 64 hex characters
+    // If Privy returns 66 characters (with leading "00"), take the last 64
+    // If it's exactly 64, use it as-is
+    // If it's less than 64, pad with leading zeros (shouldn't happen, but handle gracefully)
+    if (normalizedKey.length === 64) {
+      // Perfect - already the correct length
+    } else if (normalizedKey.length === 66) {
+      // Common case: leading "00" padding, take the last 64 characters
+      normalizedKey = normalizedKey.slice(-64);
+    } else if (normalizedKey.length > 64) {
+      // Longer than expected - take the last 64 characters
+      console.warn(`[API] Public key longer than expected (${normalizedKey.length} chars), taking last 64`);
+      normalizedKey = normalizedKey.slice(-64);
+    } else if (normalizedKey.length < 64) {
+      // Shorter than expected - pad with leading zeros
+      console.warn(`[API] Public key shorter than expected (${normalizedKey.length} chars), padding with zeros`);
+      normalizedKey = normalizedKey.padStart(64, '0');
+    }
+    
+    // Final validation: must be exactly 64 characters
+    if (normalizedKey.length !== 64) {
+      console.error(`[API] Public key normalization failed: expected 64, got ${normalizedKey.length}`, {
+        original: publicKey,
+        originalLength: publicKey.length,
+        normalized: normalizedKey,
+        normalizedLength: normalizedKey.length,
+      });
+      return NextResponse.json(
+        { 
+          error: `Invalid public key format: expected 64 hex characters, got ${normalizedKey.length}`,
+          originalLength: publicKey.length,
+        },
+        { status: 500 }
+      );
+    }
+    
+    // Return with 0x prefix for consistency
+    return NextResponse.json({ publicKey: `0x${normalizedKey}` });
   } catch (error: any) {
     console.error("Error in /api/privy/wallets/[walletId]/public-key:", error);
     return NextResponse.json(

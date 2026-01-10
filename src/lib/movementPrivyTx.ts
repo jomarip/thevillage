@@ -87,12 +87,41 @@ export async function signAndSubmitMovementEntryFunction(opts: {
   });
 
   // 3) Create authenticator + submit
-  const pubkeyHex = opts.senderPublicKeyHex.startsWith('0x')
-    ? opts.senderPublicKeyHex
-    : `0x${opts.senderPublicKeyHex}`;
+  // Normalize public key: Ed25519 requires exactly 32 bytes (64 hex chars after 0x)
+  let pubkeyHex = opts.senderPublicKeyHex.startsWith('0x')
+    ? opts.senderPublicKeyHex.slice(2) // Remove 0x to work with raw hex
+    : opts.senderPublicKeyHex;
+  
+  // Ed25519 public keys are exactly 32 bytes = 64 hex characters
+  // Handle different lengths that Privy might return
+  if (pubkeyHex.length === 64) {
+    // Perfect - already the correct length
+  } else if (pubkeyHex.length === 66) {
+    // Common case: leading "00" padding, take the last 64 characters
+    pubkeyHex = pubkeyHex.slice(-64);
+  } else if (pubkeyHex.length > 64) {
+    // Longer than expected - take the last 64 characters
+    console.warn(`[movementPrivyTx] Public key longer than expected (${pubkeyHex.length} chars), taking last 64`);
+    pubkeyHex = pubkeyHex.slice(-64);
+  } else if (pubkeyHex.length < 64) {
+    // Shorter than expected - pad with leading zeros
+    console.warn(`[movementPrivyTx] Public key shorter than expected (${pubkeyHex.length} chars), padding with zeros`);
+    pubkeyHex = pubkeyHex.padStart(64, '0');
+  }
+  
+  // Final validation: must be exactly 64 characters
+  if (pubkeyHex.length !== 64) {
+    throw new Error(
+      `Invalid public key length: expected 64 hex characters (32 bytes), got ${pubkeyHex.length}. ` +
+      `Original: ${opts.senderPublicKeyHex.substring(0, 30)}...`
+    );
+  }
+  
+  // Add 0x prefix for Ed25519PublicKey constructor
+  const normalizedPubkeyHex = `0x${pubkeyHex}`;
 
   const authenticator = new AccountAuthenticatorEd25519(
-    new Ed25519PublicKey(pubkeyHex),
+    new Ed25519PublicKey(normalizedPubkeyHex),
     // Privy returns 0x-prefixed signature; Aptos SDK wants raw hex
     new Ed25519Signature(signature.slice(2))
   );

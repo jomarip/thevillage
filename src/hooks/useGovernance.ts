@@ -11,6 +11,11 @@ import {
 import { ProposalStatus } from "@/types/contract";
 import { queryKeys } from "@/providers/QueryProvider";
 import { VotingMechanism, VoteChoice, VoteChoiceLabels } from "@/types/contract";
+import {
+  showTransactionSuccess,
+  showErrorWithGuidance,
+  parseErrorForGuidance,
+} from "@/lib/toast-helpers";
 
 /**
  * Hook to get a specific proposal
