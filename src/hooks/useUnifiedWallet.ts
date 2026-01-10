@@ -109,48 +109,26 @@ export function useUnifiedWallet() {
     }
     // Privy embedded wallet
     if (walletType === "privy") {
-      // First try movementWallet (has publicKey)
+      // movementWallet now reliably includes publicKey (fetched via API route)
       if (movementWallet) {
         console.log('[useUnifiedWallet] Using movementWallet account:', {
           address: movementWallet.address,
           hasPublicKey: !!movementWallet.publicKey,
+          chainType: movementWallet.chainType,
         });
         return {
           address: movementWallet.address,
           publicKey: movementWallet.publicKey,
         };
       }
-      // Fallback: try to get address from linkedAccounts even if no publicKey
-      // This allows UI to show connected state even when publicKey is missing
-      if (privy.user?.linkedAccounts) {
-        const wallet = privy.user.linkedAccounts.find(
-          (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
-        ) as any;
-        if (wallet) {
-          // Privy's wallet type has address property
-          const address = wallet.address || (wallet as any).walletAddress;
-          console.log('[useUnifiedWallet] Found wallet in linkedAccounts (fallback):', {
-            address,
-            hasPublicKey: !!(wallet as any).public_key || !!(wallet as any).publicKey,
-            walletKeys: Object.keys(wallet),
-          });
-          if (address) {
-            // Return account with address, but publicKey might be missing
-            // This is okay for display purposes, but transactions will fail if publicKey is missing
-            const account = {
-              address: address.startsWith('0x') ? address : `0x${address}`,
-              publicKey: (wallet as any).public_key || (wallet as any).publicKey || (wallet as any).publicKeyHex || '', // May be empty
-            };
-            console.log('[useUnifiedWallet] Returning fallback account:', account);
-            return account;
-          }
-        }
-      }
-      console.log('[useUnifiedWallet] No Privy account found');
+      // If movementWallet is null, it means either:
+      // 1. No wallet in linkedAccounts, or
+      // 2. Public key is still loading (isLoading will be true)
+      console.log('[useUnifiedWallet] Movement wallet not ready (may be loading)');
     }
     console.log('[useUnifiedWallet] No account found - returning null');
     return null;
-  }, [walletType, nightlyWallet.account, aptosWallet.account, movementWallet, privy.user?.linkedAccounts, privy.authenticated]);
+  }, [walletType, nightlyWallet.account, aptosWallet.account, movementWallet]);
 
   // Sign and submit transaction
   // Supports: Direct Nightly (bypasses adapter), Petra/Nightly (via adapter), and Privy (embedded wallet)
@@ -219,38 +197,25 @@ export function useUnifiedWallet() {
     // Use Privy (either as primary wallet or fallback from Aptos adapter)
     // Note: Fallback happens when walletType === "aptos" but we caught a network error above
     if ((walletType === "privy" || (walletType === "aptos" && privy.authenticated))) {
-      // Check if we have movementWallet with publicKey
+      // movementWallet now reliably includes publicKey (fetched via API route)
       if (!movementWallet) {
-        // Try to get account from linkedAccounts as fallback
-        const fallbackWallet = privy.user?.linkedAccounts?.find(
-          (a: any) => a.type === 'wallet' && (a.chainType === 'movement' || a.chainType === 'aptos')
-        );
-        if (fallbackWallet) {
-          const address = (fallbackWallet as any).address || (fallbackWallet as any).walletAddress;
-          throw new Error(
-            `Movement wallet found but missing required information (publicKey). ` +
-            `Please click "Connect Wallet" and reconnect your Privy wallet to restore access. ` +
-            `Your wallet address: ${address}`
-          );
-        }
         throw new Error(
-          "No Movement wallet found. Please connect your Privy wallet first."
+          "Movement wallet not ready. Please wait for wallet to load, or reconnect your Privy wallet."
         );
       }
 
       // Validate Movement wallet has required fields
+      // With the new pattern, this should always pass, but we check for safety
       if (!movementWallet.address || !movementWallet.publicKey) {
-        // Add detailed logging to help debug
         console.error('Movement wallet validation failed:', {
           hasAddress: !!movementWallet.address,
           hasPublicKey: !!movementWallet.publicKey,
           address: movementWallet.address,
           publicKey: movementWallet.publicKey ? movementWallet.publicKey.substring(0, 20) + '...' : 'missing',
-          walletObject: movementWallet,
         });
         throw new Error(
-          `Movement wallet is missing required information (publicKey). ` +
-          `Please click "Connect Wallet" and reconnect your Privy wallet to restore access. ` +
+          `Movement wallet is missing required information. ` +
+          `Please reconnect your Privy wallet. ` +
           `Your wallet address: ${movementWallet.address || 'unknown'}`
         );
       }
@@ -268,14 +233,14 @@ export function useUnifiedWallet() {
       }
 
       // Use Privy Tier 2 pattern: build -> sign raw hash -> submit
-      // Privy natively supports Movement Network
+      // Use the wallet's actual chainType (movement or aptos) instead of hardcoding
       try {
         // Use Privy's raw sign - note: Privy React SDK may support 'aptos' for Movement
         // even if TypeScript types don't reflect it. We cast signRawHash to work around type limitations.
         const txHash = await signAndSubmitMovementEntryFunction({
           senderAddress: formattedAddress,
           senderPublicKeyHex: formattedPublicKey,
-          chainType: 'aptos', // Movement uses Aptos standards, so use 'aptos' chainType
+          chainType: movementWallet.chainType === 'aptos' ? 'aptos' : 'aptos', // Movement uses 'aptos' chainType in Privy
           signRawHash: signRawHash as any, // Cast to work around TypeScript type limitations
           functionId: payload.data.function,
           functionArgs: payload.data.functionArguments,

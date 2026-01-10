@@ -40,7 +40,6 @@ export default function StaffApprovalsPage() {
   const { data: pendingRequests = [], isLoading: requestsLoading, refetch } = usePendingRequests();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRequest, setSelectedRequest] = useState<typeof pendingRequests[0] | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
 
   // Add activity names to requests
@@ -50,6 +49,10 @@ export default function StaffApprovalsPage() {
       activityName: getActivityName(req.activityId),
     }));
   }, [pendingRequests]);
+
+  // Type for request with activity name
+  type RequestWithActivityName = typeof requestsWithActivityNames[0];
+  const [selectedRequest, setSelectedRequest] = useState<RequestWithActivityName | null>(null);
 
   const filteredRequests = requestsWithActivityNames.filter(
     (req) =>

@@ -51,7 +51,13 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x2144ec184b89cf405e430d375b3de991ae14baf26cb6ec998
 
 # Explorer URL
 NEXT_PUBLIC_EXPLORER_URL=https://explorer.movementnetwork.xyz/?network=bardock+testnet
+
+# Privy Configuration (for embedded wallets)
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_SECRET=your_privy_app_secret  # Server-side only - do NOT expose to client
 ```
+
+**Important**: The `PRIVY_APP_SECRET` is used server-side only (in API routes) to fetch wallet public keys. Never expose it to the client or commit it to version control.
 
 4. Copy assets from parent directory:
 ```bash

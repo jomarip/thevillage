@@ -1,0 +1,90 @@
+import { NextResponse } from "next/server";
+
+/**
+ * Next.js API Route: Get Movement/Aptos wallet public key from Privy
+ * 
+ * This route fetches the public key for a Privy wallet using the Privy Wallet API.
+ * It requires server-side execution because it uses the Privy app secret for authentication.
+ * 
+ * Security Note: In production, you should authorize this endpoint (e.g., verify the caller
+ * owns the wallet by verifying Privy tokens). For demo purposes, wallet IDs are typically
+ * not exposed broadly, so this is acceptable.
+ * 
+ * Reference: https://docs.privy.io/api-reference/wallets/create
+ */
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+export async function GET(
+  _req: Request,
+  { params }: { params: { walletId: string } }
+) {
+  try {
+    const PRIVY_APP_ID = requireEnv("NEXT_PUBLIC_PRIVY_APP_ID");
+    const PRIVY_APP_SECRET = requireEnv("PRIVY_APP_SECRET");
+
+    const walletId = params.walletId;
+    if (!walletId) {
+      return NextResponse.json(
+        { error: "Missing walletId parameter" },
+        { status: 400 }
+      );
+    }
+
+    // Create Basic Auth header: base64(appId:appSecret)
+    const basicAuth = Buffer.from(`${PRIVY_APP_ID}:${PRIVY_APP_SECRET}`).toString("base64");
+
+    // Fetch wallet from Privy Wallet API
+    const response = await fetch(`https://api.privy.io/v1/wallets/${walletId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        "privy-app-id": PRIVY_APP_ID,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store", // Don't cache wallet data
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Privy API error for wallet ${walletId}:`, errorText);
+      return NextResponse.json(
+        {
+          error: "Failed to fetch wallet from Privy",
+          details: errorText,
+        },
+        { status: response.status || 500 }
+      );
+    }
+
+    const wallet = await response.json();
+
+    // Privy returns `public_key` on the wallet object
+    // Return it in a consistent format (ensure 0x prefix if present)
+    const publicKey = wallet.public_key || null;
+    
+    if (!publicKey) {
+      return NextResponse.json(
+        { error: "Wallet does not have a public_key" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ publicKey });
+  } catch (error: any) {
+    console.error("Error in /api/privy/wallets/[walletId]/public-key:", error);
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        message: error.message || "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
