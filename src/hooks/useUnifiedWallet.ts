@@ -172,12 +172,32 @@ export function useUnifiedWallet() {
     throw new Error("No wallet connected. Please connect a wallet (Petra, Nightly, or Privy) to continue.");
   };
 
+  // Unified disconnect function that disconnects all wallet types
+  const disconnectAll = async () => {
+    try {
+      // Disconnect in order: Nightly direct, Aptos adapter, Privy
+      if (walletType === "nightly-direct") {
+        await nightlyWallet.disconnect();
+      }
+      if (walletType === "aptos" && aptosWallet.disconnect) {
+        await aptosWallet.disconnect();
+      }
+      if (walletType === "privy" && privy.logout) {
+        await privy.logout();
+      }
+    } catch (error) {
+      console.error("Error during disconnect:", error);
+      // Continue even if one fails
+    }
+  };
+
   return {
     account,
     connected: walletType !== null,
     connecting: aptosWallet.connecting || privy.ready === false || nightlyWallet.connecting,
     walletType,
     signAndSubmitTransaction,
+    disconnect: disconnectAll,
     // Nightly-specific methods
     connectNightly: nightlyWallet.connect,
     disconnectNightly: nightlyWallet.disconnect,

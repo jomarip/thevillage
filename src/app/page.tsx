@@ -25,6 +25,7 @@ export default function HomePage() {
 
   // Ensure wallet detection hooks initialize on page load
   // This helps with wallets that inject after initial render
+  // Also ensure WalletConnectModal hooks are initialized by rendering it early
   useEffect(() => {
     if (typeof window !== "undefined") {
       // Trigger wallet detection by accessing window objects
@@ -37,6 +38,10 @@ export default function HomePage() {
       return () => clearTimeout(timer);
     }
   }, []);
+
+  // Always render WalletConnectModal (hidden) to ensure hooks initialize
+  // This fixes the issue where wallet connection doesn't work on initial page load
+  // The modal hooks need to be called for wallet detection to work properly
 
   return (
     <div className="min-h-screen bg-background">
@@ -499,6 +504,12 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+      
+      {/* Hidden WalletConnectModal to ensure hooks initialize on page load */}
+      {/* This fixes the issue where wallet connection doesn't work on initial load */}
+      <div className="hidden">
+        <WalletConnectModal />
+      </div>
     </div>
   );
 }

@@ -302,23 +302,34 @@ export async function getProject(projectId: number): Promise<Partial<InvestmentP
     // Returns: (address, vector<u8>, u64, u64, bool, u8, u64)
     // [proposer, metadata_cid, target_usdc, target_hours, is_grant, status, created_at]
     const [proposer, metadataCidBytes, targetUsdc, targetHours, isGrant, status, createdAt] = result as [
-      string, number[], string, string, boolean, number, string
+      string, number[], string | number, string | number, boolean, number, string | number
     ];
+    
+    // Safely parse numeric values, handling both string and number types
+    const targetUsdcNum = typeof targetUsdc === 'string' ? parseInt(targetUsdc, 10) : targetUsdc;
+    const targetHoursNum = typeof targetHours === 'string' ? parseInt(targetHours, 10) : targetHours;
+    const createdAtNum = typeof createdAt === 'string' ? parseInt(createdAt, 10) : createdAt;
+    
+    // Validate parsed values
+    if (isNaN(targetUsdcNum) || isNaN(targetHoursNum) || isNaN(createdAtNum)) {
+      console.warn(`Invalid project data for project ${projectId}:`, { targetUsdc, targetHours, createdAt });
+      return null;
+    }
     
     // Note: metadata_cid would need to be fetched from IPFS or similar
     // For now, we'll return basic project data that can be merged with mock data
     return {
       id: projectId,
       borrower: proposer,
-      targetAmount: parseInt(targetUsdc),
+      targetAmount: targetUsdcNum,
       currentTotal: 0, // Would need to query pool separately
       status: status as PoolStatus,
       interestRate: 0,
       duration: 0,
-      createdAt: parseInt(createdAt),
+      createdAt: createdAtNum,
       // Additional fields for merging with mock data
       metadataCid: bytesToString(metadataCidBytes),
-      targetHours: parseInt(targetHours),
+      targetHours: targetHoursNum,
       isGrant,
     } as any;
   } catch (error) {
@@ -344,12 +355,17 @@ export async function listProjects(statusFilter?: PoolStatus): Promise<Partial<I
     });
     
     // Returns: vector<u64> - array of project IDs
-    const projectIds = result as string[];
+    const projectIds = result as string[] | number[];
     
     // Fetch details for each project
     const projects = await Promise.all(
-      projectIds.map(async (idStr) => {
-        const id = parseInt(idStr);
+      projectIds.map(async (idValue) => {
+        // Handle both string and number IDs
+        const id = typeof idValue === 'string' ? parseInt(idValue, 10) : idValue;
+        // Skip invalid IDs
+        if (isNaN(id) || id < 0) {
+          return null;
+        }
         return await getProject(id);
       })
     );

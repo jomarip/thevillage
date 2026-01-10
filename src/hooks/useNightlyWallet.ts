@@ -98,11 +98,21 @@ export function useNightlyWallet() {
     }
   }, [nightlyWallet, state.adapter]);
 
-  // Check for existing connection when adapter is available
-  // Try to get current account using aptos:account feature or silent connect
+  // Check for existing connection ONLY if user has previously connected
+  // We use sessionStorage to track if user explicitly connected
+  // This prevents auto-connection on page load
   useEffect(() => {
     const checkExistingConnection = async () => {
       if (!state.adapter || state.connected) return;
+      
+      // Only auto-connect if user explicitly connected before (stored in sessionStorage)
+      const wasConnected = typeof window !== "undefined" && 
+        sessionStorage.getItem("nightly_wallet_connected") === "true";
+      
+      if (!wasConnected) {
+        // User hasn't explicitly connected, don't auto-connect
+        return;
+      }
 
       try {
         // Method 1: Try to get account directly (if wallet is already connected)
@@ -123,7 +133,11 @@ export function useNightlyWallet() {
             }
           } catch (error) {
             // Account feature might not be available or wallet not connected
-            // Fall through to silent connect method
+            // Clear the session flag if connection failed
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("nightly_wallet_connected");
+            }
+            return;
           }
         }
 
@@ -170,8 +184,10 @@ export function useNightlyWallet() {
           }
         }
       } catch (error) {
-        // Silently fail - wallet might not be connected yet
-        // This is expected if the wallet hasn't been connected
+        // Connection failed, clear the session flag
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("nightly_wallet_connected");
+        }
       }
     };
 
@@ -219,6 +235,10 @@ export function useNightlyWallet() {
       }
 
       if (account) {
+        // Mark that user explicitly connected (for session persistence)
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("nightly_wallet_connected", "true");
+        }
         setState({
           adapter: state.adapter,
           connected: true,
@@ -239,7 +259,21 @@ export function useNightlyWallet() {
 
   // Disconnect from Nightly
   const disconnect = useCallback(async () => {
-    if (!state.adapter || !state.connected) return;
+    // Clear session storage to prevent auto-reconnect
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("nightly_wallet_connected");
+    }
+
+    if (!state.adapter || !state.connected) {
+      // Even if not connected, clear state
+      setState({
+        adapter: state.adapter,
+        connected: false,
+        account: null,
+        connecting: false,
+      });
+      return;
+    }
 
     try {
       await state.adapter.features["aptos:disconnect"].disconnect();
@@ -251,6 +285,13 @@ export function useNightlyWallet() {
       });
     } catch (error) {
       console.error("Error disconnecting Nightly wallet:", error);
+      // Even if disconnect fails, clear local state
+      setState({
+        adapter: state.adapter,
+        connected: false,
+        account: null,
+        connecting: false,
+      });
     }
   }, [state.adapter, state.connected]);
 

@@ -5,6 +5,7 @@ import { useWallet, WalletName } from "@aptos-labs/wallet-adapter-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useMovementWallet } from "@/hooks/useMovementWallet";
 import { useNightlyWallet } from "@/hooks/useNightlyWallet";
+import { useUnifiedWallet } from "@/hooks/useUnifiedWallet";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
     connecting: nightlyConnecting,
     isInstalled: nightlyInstalled,
   } = useNightlyWallet();
+  const { disconnect: disconnectAll } = useUnifiedWallet();
   const [open, setOpen] = useState(false);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -59,13 +61,16 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
     }
   };
 
-  // Handle disconnect
+  // Handle disconnect - disconnect all wallet types using unified function
   const handleDisconnect = async () => {
     try {
-      await disconnect();
+      // Use unified disconnect which handles all wallet types
+      await disconnectAll();
       setOpen(false);
     } catch (error) {
       console.error("Failed to disconnect wallet:", error);
+      // Force close dialog even if disconnect fails
+      setOpen(false);
     }
   };
 
@@ -157,40 +162,13 @@ export function WalletConnectModal({ trigger }: WalletConnectModalProps) {
               )}
             </div>
             <div className="flex gap-2">
-              {connected && (
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={handleDisconnect}
-                >
-                  Disconnect Wallet
-                </Button>
-              )}
-              {nightlyConnected && !connected && (
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={async () => {
-                    try {
-                      await disconnectNightly();
-                      setOpen(false);
-                    } catch (error) {
-                      console.error("Failed to disconnect Nightly:", error);
-                    }
-                  }}
-                >
-                  Disconnect Nightly
-                </Button>
-              )}
-              {authenticated && !connected && !nightlyConnected && (
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={handlePrivyLogout}
-                >
-                  Logout
-                </Button>
-              )}
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleDisconnect}
+              >
+                Disconnect All
+              </Button>
             </div>
           </div>
         </DialogContent>
