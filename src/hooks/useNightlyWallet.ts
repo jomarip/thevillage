@@ -161,7 +161,9 @@ export function useNightlyWallet() {
                 connected: true,
                 account: {
                   address: account.address?.toString() || account.address || "",
-                  publicKey: account.publicKey?.toString() || account.publicKey || "",
+                  publicKey: account.publicKey 
+                    ? (typeof account.publicKey === 'string' ? account.publicKey : account.publicKey.toString())
+                    : "",
                 },
                 connecting: false,
               });
@@ -170,14 +172,16 @@ export function useNightlyWallet() {
         } else {
           // Handle direct account return (legacy format)
           const accounts = Array.isArray(connectResult) ? connectResult : [connectResult];
-          const account = accounts[0];
+          const account: any = accounts[0];
           if (account) {
             setState({
               adapter: state.adapter,
               connected: true,
               account: {
                 address: account.address?.toString() || account.address || "",
-                publicKey: account.publicKey?.toString() || account.publicKey || "",
+                publicKey: account.publicKey 
+                  ? (typeof account.publicKey === 'string' ? account.publicKey : account.publicKey.toString())
+                  : "",
               },
               connecting: false,
             });
@@ -244,7 +248,9 @@ export function useNightlyWallet() {
           connected: true,
           account: {
             address: account.address?.toString() || account.address || "",
-            publicKey: account.publicKey?.toString() || account.publicKey || "",
+            publicKey: account.publicKey 
+              ? (typeof account.publicKey === 'string' ? account.publicKey : account.publicKey.toString())
+              : "",
           },
           connecting: false,
         });
@@ -319,7 +325,7 @@ export function useNightlyWallet() {
       const transaction = await movement.transaction.build.simple({
         sender: state.account.address,
         data: {
-          function: payload.data.function,
+          function: payload.data.function as `${string}::${string}::${string}`,
           typeArguments: payload.data.typeArguments || [],
           functionArguments: payload.data.functionArguments,
         },
@@ -327,10 +333,49 @@ export function useNightlyWallet() {
 
       // Sign and submit using Nightly's adapter
       // This bypasses the AptosWalletAdapterProvider's network validation
-      const signedTx = await state.adapter.features["aptos:signAndSubmitTransaction"].signAndSubmitTransaction(transaction);
-
+      // Note: The adapter's signAndSubmitTransaction expects a different format,
+      // so we use sign + submit separately which works with SimpleTransaction
+      const signFeature = state.adapter.features["aptos:signTransaction"];
+      if (!signFeature) {
+        throw new Error("Nightly wallet does not support signTransaction");
+      }
+      
+      // Sign transaction
+      // Handle UserResponse type (can be approval or rejection)
+      const signResult = await signFeature.signTransaction(transaction);
+      let accountAuthenticator: any = null;
+      
+      if (signResult && typeof signResult === 'object' && 'status' in signResult) {
+        if (signResult.status === 'Approved' && 'args' in signResult) {
+          accountAuthenticator = signResult.args;
+        } else {
+          throw new Error("User rejected transaction signing");
+        }
+      } else {
+        // Handle direct return (legacy format)
+        accountAuthenticator = signResult;
+      }
+      
+      if (!accountAuthenticator) {
+        throw new Error("Failed to get account authenticator from signing");
+      }
+      
+      // Create authenticator and submit
+      const authenticator = new AccountAuthenticatorEd25519(
+        accountAuthenticator.public_key,
+        accountAuthenticator.signature
+      );
+      
+      const pending = await movement.transaction.submit.simple({
+        transaction,
+        senderAuthenticator: authenticator,
+      });
+      
+      // Wait for confirmation
+      await movement.waitForTransaction({ transactionHash: pending.hash });
+      
       return {
-        hash: signedTx.hash,
+        hash: pending.hash,
         success: true,
       };
     } catch (error: any) {
@@ -346,19 +391,41 @@ export function useNightlyWallet() {
         const transaction = await movement.transaction.build.simple({
           sender: state.account.address,
           data: {
-            function: payload.data.function,
+            function: payload.data.function as `${string}::${string}::${string}`,
             typeArguments: payload.data.typeArguments || [],
             functionArguments: payload.data.functionArguments,
           },
         });
 
         // Sign transaction
-        const signedTx = await state.adapter.features["aptos:signTransaction"].signTransaction(transaction);
+        const signFeature = state.adapter.features["aptos:signTransaction"];
+        if (!signFeature) {
+          throw new Error("Nightly wallet does not support signTransaction");
+        }
+        
+        // Handle UserResponse type (can be approval or rejection)
+        const signResult = await signFeature.signTransaction(transaction);
+        let accountAuthenticator: any = null;
+        
+        if (signResult && typeof signResult === 'object' && 'status' in signResult) {
+          if (signResult.status === 'Approved' && 'args' in signResult) {
+            accountAuthenticator = signResult.args;
+          } else {
+            throw new Error("User rejected transaction signing");
+          }
+        } else {
+          // Handle direct return (legacy format)
+          accountAuthenticator = signResult;
+        }
+        
+        if (!accountAuthenticator) {
+          throw new Error("Failed to get account authenticator from signing");
+        }
 
         // Create authenticator and submit
         const authenticator = new AccountAuthenticatorEd25519(
-          signedTx.args.public_key,
-          signedTx.args.signature
+          accountAuthenticator.public_key,
+          accountAuthenticator.signature
         );
 
         const pending = await movement.transaction.submit.simple({

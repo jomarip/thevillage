@@ -88,7 +88,9 @@ export function useMovementWallet(): {
     }
 
     const chainType =
-      (wallet.chainType || wallet.chain_type) === 'aptos' ? ('aptos' as const) : ('movement' as const);
+      (walletAny?.chainType ?? walletAny?.chain_type) === 'aptos'
+        ? ('aptos' as const)
+        : ('movement' as const);
 
     return { walletId, address, chainType };
   }, [user?.linkedAccounts]);
@@ -205,7 +207,9 @@ export function useMovementWallet(): {
     }
 
     try {
-      const result = await createWallet({ chainType: 'movement' });
+      // Privy's TypeScript types don't include 'movement' or 'aptos' in supported chainTypes,
+      // but the runtime supports them. Use type assertion to bypass the type check.
+      const result = await createWallet({ chainType: 'movement' as any });
       const wallet = result.wallet || result;
 
       // Extract wallet info from the creation result

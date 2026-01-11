@@ -50,7 +50,6 @@ export function PrivyProvider({ children }: PrivyProviderProps) {
           // Disable automatic Ethereum wallet creation (we only use Movement wallets)
           createOnLogin: "off",
           requireUserPasswordOnCreate: false,
-          noPromptOnSignature: false,
         },
         
         // Appearance
@@ -68,7 +67,6 @@ export function PrivyProvider({ children }: PrivyProviderProps) {
         
         // Performance optimizations
         // Don't prefetch wallet connectors on initial load to improve page load time
-        _unsafe_openModalOnMount: false,
       }}
     >
       {children}

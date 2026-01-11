@@ -3,6 +3,7 @@
 import { ReactNode, useMemo, useEffect } from "react";
 import {
   AptosWalletAdapterProvider,
+  type AvailableWallets,
 } from "@aptos-labs/wallet-adapter-react";
 
 interface WalletProviderProps {
@@ -40,7 +41,7 @@ interface WalletProviderProps {
 export function WalletProvider({ children }: WalletProviderProps) {
   // Show Petra and Nightly as options even when not already installed
   // Nightly will be auto-detected by the wallet adapter if installed
-  const optInWallets = ["Petra", "Nightly"];
+  const optInWallets: readonly AvailableWallets[] = ["Petra", "Nightly"] as const;
 
   // Initialize wallet detection on mount
   // This ensures wallets that inject after page load are detected
@@ -74,18 +75,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
     };
   }, []);
 
-  // DApp configuration
-  const dappInfo = useMemo(() => ({
-    aptosConnect: {
-      dappName: "The Village", // Defaults to document's title if not provided
-      // dappImageURI: "..." // Optional: defaults to dapp's favicon
-    },
-  }), []);
-
   // DApp config WITHOUT network - let wallets handle their own network settings
   // This prevents "Invalid network, custom network not supported" errors
   // Wallets (Petra, Nightly) will use their own network configuration
   // Users must configure their wallets to use Movement Network manually
+  // Note: We use 'as any' to bypass TypeScript's requirement for 'network' property
+  // because including it causes the adapter to reject custom networks like Movement
   const dappConfig = useMemo(() => ({
     // Don't include network - wallets handle their own network settings
     // This allows Petra/Nightly to work with Movement Network (custom network)
@@ -93,13 +88,12 @@ export function WalletProvider({ children }: WalletProviderProps) {
       dappName: "The Village",
       // dappImageURI: "..." // Optional: defaults to dapp's favicon
     },
-  }), []);
+  } as any), []);
 
   return (
     <AptosWalletAdapterProvider
       optInWallets={optInWallets}
       autoConnect={false}
-      dappInfo={dappInfo}
       dappConfig={dappConfig}
       onError={(error) => {
         // Only log non-network validation errors to avoid spam

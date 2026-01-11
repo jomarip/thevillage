@@ -21,9 +21,10 @@ import {
 import { Role, VotingMechanism, VoteChoice } from '@/types/contract';
 import { stringToBytes } from './utils';
 
+// Import the type from movementPrivyTx to ensure consistency
 type PrivySignRawHash = (opts: {
   address: string;
-  chainType: 'movement' | 'aptos';
+  chainType: string; // Privy React SDK may support 'aptos' for Movement even if types don't show it
   hash: `0x${string}`;
 }) => Promise<{ signature: `0x${string}` }>;
 
@@ -50,7 +51,7 @@ export class VillageTx {
   async requestMembership(role: Role, note: string): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.members}::request_membership`,
       functionArgs: [
         MEMBERS_REGISTRY_ADDR,
@@ -63,7 +64,7 @@ export class VillageTx {
   async acceptMembership(): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.members}::accept_membership`,
       functionArgs: [MEMBERS_REGISTRY_ADDR],
     });
@@ -76,7 +77,7 @@ export class VillageTx {
   async createTimeBankRequest(hours: number, activityId: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.timebank}::create_request`,
       functionArgs: [
         hours,
@@ -90,7 +91,7 @@ export class VillageTx {
   async approveTimeBankRequest(requestId: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.timebank}::approve_request`,
       functionArgs: [
         requestId,
@@ -110,7 +111,7 @@ export class VillageTx {
     const amountInOctas = moveToOctas(amountInMove);
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.treasury}::deposit`,
       functionArgs: [
         amountInOctas,
@@ -125,7 +126,7 @@ export class VillageTx {
     const amountInOctas = moveToOctas(amountInMove);
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.treasury}::withdraw`,
       functionArgs: [amountInOctas, TREASURY_ADDR],
     });
@@ -139,7 +140,7 @@ export class VillageTx {
     const amountInBaseUnits = timeDollarsToBaseUnits(amountInTimeDollars);
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.time_token}::transfer`,
       functionArgs: [recipient, amountInBaseUnits, TOKEN_ADMIN_ADDR],
     });
@@ -157,7 +158,7 @@ export class VillageTx {
   ): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.governance}::create_proposal`,
       functionArgs: [
         Array.from(stringToBytes(title)),
@@ -175,7 +176,7 @@ export class VillageTx {
   async voteOnProposal(proposalId: number, choice: VoteChoice): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.governance}::vote`,
       functionArgs: [
         proposalId,
@@ -194,7 +195,7 @@ export class VillageTx {
   async stake(poolId: number, amount: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.rewards}::stake`,
       functionArgs: [poolId, amount, POOL_REGISTRY_ADDR],
     });
@@ -203,7 +204,7 @@ export class VillageTx {
   async claimRewards(poolId: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.rewards}::claim_rewards`,
       functionArgs: [poolId, POOL_REGISTRY_ADDR],
     });
@@ -212,7 +213,7 @@ export class VillageTx {
   async unstake(poolId: number, amount: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.rewards}::unstake`,
       functionArgs: [poolId, amount, POOL_REGISTRY_ADDR],
     });
@@ -225,7 +226,7 @@ export class VillageTx {
   async whitelistAddress(addressToWhitelist: string): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.compliance}::whitelist_address`,
       functionArgs: [addressToWhitelist, COMPLIANCE_REGISTRY_ADDR],
     });
@@ -234,7 +235,7 @@ export class VillageTx {
   async approveMembershipRequest(requestId: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.members}::approve_membership`,
       functionArgs: [requestId, MEMBERS_REGISTRY_ADDR],
     });
@@ -243,7 +244,7 @@ export class VillageTx {
   async rejectMembershipRequest(requestId: number): Promise<string> {
     return signAndSubmitMovementEntryFunction({
       ...this.opts,
-      chainType: 'movement',
+      chainType: 'aptos',
       functionId: `${MODULE_PATHS.members}::reject_membership`,
       functionArgs: [requestId, MEMBERS_REGISTRY_ADDR],
     });

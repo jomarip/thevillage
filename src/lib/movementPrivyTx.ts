@@ -70,7 +70,7 @@ export async function signAndSubmitMovementEntryFunction(opts: {
   const tx = await aptos.transaction.build.simple({
     sender: opts.senderAddress,
     data: {
-      function: opts.functionId,
+      function: opts.functionId as `${string}::${string}::${string}`,
       typeArguments: opts.typeArgs ?? [],
       functionArguments: opts.functionArgs ?? [],
     },
